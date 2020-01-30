@@ -1,3 +1,6 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
 import tinyprog
 import usb
 import sys
@@ -28,12 +31,12 @@ def _read_loop(port):
         thiscycle = int(ch[0])
         cycle_output = b''
         if thiscycle != lastcycle:
-            print(f'{hex(ch[0])} ', end='')
+            print(f'{ch.hex()} ', end='')
             cycle_output += ch
         for _ in range(DEBUGBYTES):
             ch=port.read(1)
             if thiscycle != lastcycle:
-                print(f'{hex(ch[0])} ', end='')
+                print(f'{ch.hex()} ', end='')
                 cycle_output += ch
         if thiscycle != lastcycle:
             print()
