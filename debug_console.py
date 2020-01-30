@@ -52,6 +52,11 @@ def _write_loop(port):
         # Done writing
         yield None
 
+def parse_cycle_output(cycle_count, cycle_output):
+    """Parse one cycle output"""
+    # TODO: Implement
+    pass
+
 def main():
     ports = tinyprog.get_ports("1d50:6130")
     print(f'Found {len(ports)} serial port(s)')
@@ -71,7 +76,8 @@ def main():
 
             ch = _align_serial_reads(port)
 
-            thiscycle, cycle_output = read_loop.send(ch)
+            cycle_count, cycle_output = read_loop.send(ch)
+            parse_cycle_output(cycle_count, cycle_output)
 
 if __name__ == '__main__':
     try:
