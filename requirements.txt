@@ -1,0 +1,3 @@
+git+https://github.com/FPGAwars/apio.git@8af6450df557a873e785aecea306aeed99a1e54e
+cocotb==1.3.0
+tinyprog==1.0.21

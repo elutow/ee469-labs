@@ -76,7 +76,8 @@ if 'build' in COMMAND_LINE_TARGETS or \
 # -- Resources paths
 IVL_PATH = os.environ['IVL'] if 'IVL' in os.environ else ''
 VLIB_PATH = os.environ['VLIB'] if 'VLIB' in os.environ else ''
-VLIB_F = ['"{}"'.format(f) for f in Glob(os.path.join(VLIB_PATH, '*.v'))]
+VLIB_F_GLOB = Glob(os.path.join(VLIB_PATH, '*.v')) + Glob(os.path.join(VLIB_PATH, '*.sv'))
+VLIB_F = ['"{}"'.format(f) for f in VLIB_F_GLOB]
 VLIB_FILES = ' '.join(VLIB_F) if VLIB_PATH else ''
 ICEBOX_PATH = os.environ['ICEBOX'] if 'ICEBOX' in os.environ else ''
 CHIPDB_PATH = os.path.join(ICEBOX_PATH, 'chipdb-{0}.txt'.format(FPGA_SIZE))
@@ -103,13 +104,13 @@ list_scanner = env.Scanner(function=list_files_scan)
 
 # -- Get a list of all the verilog files in the src folfer, in ASCII, with
 # -- the full path. All these files are used for the simulation
-v_nodes = Glob('*.v') + Glob('usb/*.v') + Glob('cpu/*.v')
+v_nodes = Glob('*.v') + Glob('usb/*.v') + Glob('cpu/*.v') + Glob('cpu/*.sv')
 src_sim = [str(f) for f in v_nodes]
 
 # --------- Get the Testbench file (there should be only 1)
 # -- Create a list with all the files finished in _tb.v. It should contain
 # -- the test bench
-list_tb = [f for f in src_sim if f[-5:].upper() == '_TB.V']
+list_tb = [f for f in src_sim if f[-5:].upper() in ['_TB.V', '_TB.SV']]
 
 if len(list_tb) > 1:
     print('Warning: more than one testbenches used')
@@ -148,7 +149,7 @@ if SIMULNAME:
 src_synth = [f for f in src_sim if f not in list_tb]
 
 if len(src_synth) == 0:
-    print('Error: no verilog files found (.v)')
+    print('Error: no (system)verilog files found (.v or .sv)')
     Exit(1)
 
 # -- For debugging
@@ -169,11 +170,11 @@ except IndexError:
 
 # -- Define the Sintesizing Builder
 synth = Builder(
-    action='yosys -p \"synth_ice40 -blif $TARGET\" {} $SOURCES'.format(
+    action='yosys -p \"read_verilog -sv -formal $SOURCES ; synth_ice40 -blif $TARGET\" {}'.format(
         '' if VERBOSE_ALL or VERBOSE_YOSYS else '-q'
     ),
     suffix='.blif',
-    src_suffix='.v',
+    src_suffix=['.v', '.sv'],
     source_scanner=list_scanner)
 
 pnr = Builder(
@@ -219,10 +220,10 @@ AlwaysBuild(t)
 
 # -- Icarus Verilog builders
 iverilog = Builder(
-    action='iverilog {0} -o $TARGET -D VCD_OUTPUT={1} {2} $SOURCES'.format(
+    action='iverilog {0} -g2005-sv -o $TARGET -D VCD_OUTPUT={1} {2} $SOURCES'.format(
         IVER_PATH, TARGET_SIM, VLIB_FILES),
     suffix='.out',
-    src_suffix='.v',
+    src_suffix=['.v', '.sv'],
     source_scanner=list_scanner)
 
 # NOTE: output file name is defined in the iverilog call using VCD_OUTPUT macro
@@ -256,7 +257,7 @@ verilator = Builder(
         '-Wno-style' if VERILATOR_NO_STYLE else '',
         VERILATOR_PARAM_STR if VERILATOR_PARAM_STR else '',
         '--top-module ' + VERILATOR_TOP if VERILATOR_TOP else ''),
-    src_suffix='.v',
+    src_suffix=['.v', '.sv'],
     source_scanner=list_scanner)
 
 env.Append(BUILDERS={'Verilator': verilator})
