@@ -5,8 +5,8 @@ import tinyprog
 import usb
 import sys
 
-## Adjust this number to be the number of debug bytes
-DEBUGBYTES = 8
+# Adjust this number to be the number of debug bytes
+DEBUGBYTES = 7
 
 def _align_serial_reads(port):
     """Ignore serial port values with 255 and align reads to DEBUGBYTES"""
@@ -46,7 +46,7 @@ def _read_loop(port):
 
 def _write_loop(port):
     wch = 0
-    ### Just demonstrate how to write stuff back, if you want
+    # Just demonstrate how to write stuff back, if you want
     while True:
         port.write([wch])
         wch=wch+1
@@ -76,9 +76,7 @@ def main():
     with port:
         while True:
             next(write_loop)
-
             ch = _align_serial_reads(port)
-
             cycle_count, cycle_output = read_loop.send(ch)
             parse_cycle_output(cycle_count, cycle_output)
 
