@@ -18,10 +18,10 @@ module top (
   ////////////////////////////////////////////////////////////////////////////////
   wire clk_48mhz;
   wire clk_locked;
-  
+
 // OUT = Input X (DIVF + 1) / (2^(DIVQ) X (DIVR + 1))
 // Input = 16Mhz
-// OUT = 16Mhz X 96 / (2^4 * 1) = 
+// OUT = 16Mhz X 96 / (2^4 * 1) =
   SB_PLL40_CORE #(
     .DIVR(4'b0000),
     .DIVF(7'b0101111),
@@ -113,7 +113,7 @@ module top (
     if (clk_locked)
       slow_reset_cnt <= slow_reset_cnt + !slow_resetn;
 
-  localparam debug_bytes = 8; // must be power of two
+  localparam debug_bytes = 32; // must be power of two
   localparam debug_bytes_l2 = $clog2(debug_bytes);
 
   reg [7:0] data[0:debug_bytes - 1];
@@ -130,24 +130,30 @@ module top (
   reg uart_in_valid;
   wire uart_in_ready;
 
+  genvar i;
 // Send data to the USB port for debugging
   always @(posedge clk_a1hz) begin
     data[0] <= data[0] + 1; // Delete this if you don't want a slow speed cycle counter, but it's highly recommended.
-
-    data[1] <= data_wd[1]; 
-    data[2] <= data_wd[2];
-    data[3] <= data_wd[3];
-    data[4] <= data_wd[4];
-    data[5] <= data_wd[5];
-    data[6] <= data_wd[6];
-    data[7] <= data_wd[7];
   end
+    generate
+    for (i = 1; i < debug_bytes; i++) begin
+        always @(posedge clk_a1hz) begin
+            data[i] <= data_wd[i];
+        end
+    end
+    endgenerate
 
+  wire [8:debug_bytes*8-1] debug_port_vector;
+  generate
+    for (i = 1; i < debug_bytes; i++) begin
+        assign data_wd[i] = debug_port_vector[i*8:(i+1)*8-1];
+    end
+  endgenerate
 
-  cpu the_cpu(clk_a1hz, slow_resetn, pin_led,
-    data_wd[1], data_wd[2], data_wd[3],
-    data_wd[4], data_wd[5], data_wd[6], data_wd[7]);
-
+  cpu the_cpu(
+    .clk(clk_a1hz), .nreset(slow_resetn), .led(pin_led),
+    .debug_port_vector(debug_port_vector),
+);
 
 // Out delay slows down output to the serial port.  The CPU runs at ~ 1Hz
 // so no need to spam at 12Mbits/second :).  Spamming at full speed
@@ -164,7 +170,7 @@ always @(posedge clk_logic) begin
     else begin
         // Always see if there is a ready byte.  If there is, take it.
         if (uart_rx_strobe) begin
-          uart_out_data <= uart_rx_data;          
+          uart_out_data <= uart_rx_data;
         end
 
         out_delay <= out_delay + 1;
