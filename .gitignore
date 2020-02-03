@@ -1,8 +1,8 @@
 # Compilation outputs
-*.asc
-*.bin
-*.blif
-*.rpt
+/hardware.asc
+/hardware.bin
+/hardware.json
+/hardware.rpt
 
 # https://raw.githubusercontent.com/github/gitignore/master/Global/macOS.gitignore
 

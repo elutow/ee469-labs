@@ -22,7 +22,7 @@ FPGA_TYPE = ARGUMENTS.get('fpga_type', '')
 FPGA_PACK = ARGUMENTS.get('fpga_pack', '')
 VERBOSE_ALL = ARGUMENTS.get('verbose_all', False)
 VERBOSE_YOSYS = ARGUMENTS.get('verbose_yosys', False)
-VERBOSE_ARACHNE = ARGUMENTS.get('verbose_arachne', False)
+VERBOSE_NEXTPNR = ARGUMENTS.get('verbose_nextpnr', False)
 VERILATOR_ALL = ARGUMENTS.get('all', False)
 VERILATOR_NO_STYLE = ARGUMENTS.get('nostyle', False)
 VERILATOR_NO_WARN = ARGUMENTS.get('nowarn', '').split(',')
@@ -170,19 +170,19 @@ except IndexError:
 
 # -- Define the Sintesizing Builder
 synth = Builder(
-    action='yosys -p \"read_verilog -sv -formal $SOURCES ; synth_ice40 -blif $TARGET\" {}'.format(
+    action='yosys -p \"read_verilog -sv -formal $SOURCES ; synth_ice40 -json $TARGET\" {}'.format(
         '' if VERBOSE_ALL or VERBOSE_YOSYS else '-q'
     ),
-    suffix='.blif',
+    suffix='.json',
     src_suffix=['.v', '.sv'],
     source_scanner=list_scanner)
 
 pnr = Builder(
-    action='arachne-pnr -r -d {0} -P {1} -p {2} -o $TARGET {3} $SOURCE'.format(
-        FPGA_SIZE, FPGA_PACK, PCF,
-        '' if VERBOSE_ALL or VERBOSE_ARACHNE else '-q'),
+    action='nextpnr-ice40 --freq 16 --ignore-loops --randomize-seed --{0}{1} --package {2} --pcf {3} --asc $TARGET {4} --json $SOURCE'.format(
+        FPGA_TYPE, FPGA_SIZE, FPGA_PACK, PCF,
+        '' if VERBOSE_ALL or VERBOSE_NEXTPNR else '-q'),
     suffix='.asc',
-    src_suffix='.blif')
+    src_suffix='.json')
 
 bitstream = Builder(
     action='icepack $SOURCE $TARGET',
@@ -202,8 +202,8 @@ env.Append(BUILDERS={
     'Synth': synth, 'PnR': pnr, 'Bin': bitstream, 'Time': time_rpt})
 
 # -- Generate the bitstream
-blif = env.Synth(TARGET, [src_synth])
-asc = env.PnR(TARGET, [blif, PCF])
+synth_json = env.Synth(TARGET, [src_synth])
+asc = env.PnR(TARGET, [synth_json, PCF])
 bitstream = env.Bin(TARGET, asc)
 
 build = env.Alias('build', bitstream)
