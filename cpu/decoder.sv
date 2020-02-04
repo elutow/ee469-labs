@@ -84,7 +84,9 @@ module decoder(
 					end // else
 			end
 			default: begin
+			`ifndef SYNTHESIS
 				$error("Invalid instruction format");
+			`endif
 			end
 		endcase
 	end // comb
