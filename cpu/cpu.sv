@@ -19,9 +19,9 @@ module cpu(
     reg [`BIT_WIDTH-1:0] code_memory [0:`INST_COUNT-1];
     // Register file and outputs
     reg [`BIT_WIDTH-1:0] register_file [0:`REG_COUNT-1];
-    logic [`BIT_WIDTH-1:0] Rn_out, Rd_out;
+    logic [`BIT_WIDTH-1:0] Rn_out, Rd_out, next_Rn_out, next_Rd_out;
     // Current instruction
-    logic [`BIT_WIDTH-1:0] inst_fetch, inst_decode;
+    logic [`BIT_WIDTH-1:0] inst_fetch, inst_decode, next_inst_fetch, next_inst_decode;
     // Program Counter
     logic [`BIT_WIDTH-1:0] pc, next_pc;
     // Decoder outputs
@@ -35,6 +35,8 @@ module cpu(
     logic [11:0] mem_offset;
     logic branch_link;
     logic is_load;
+    // CPU internal state
+    logic ps, ns;
 
     initial begin
         //$readmemh("testcode/code.hex", code_memory);
@@ -49,14 +51,30 @@ module cpu(
     // signal indicating when the decoding is completely done.
     // Also, have an input control signal that tells it to process the next instruction
     always_comb begin
-        // Update program counter
-        next_pc = pc + `BIT_WIDTH'd4;
-        // TODO: Move instruction formats to constants
-        if (format == 2'b10) begin
-            // TODO: Handle offset determined by register (i.e. non-immediate)
-            // TODO: Handle link register
-            next_pc = branch_offset;
-        end
+        // Always go to next state
+        ns = ~ps;
+        next_inst_fetch = inst_fetch;
+        next_inst_decode = inst_decode;
+        case (ps)
+            1'b0: begin // Fetch
+                // Update program counter
+                next_pc = pc + `BIT_WIDTH'd4;
+                // TODO: Move instruction formats to constants
+                if (format == 2'b10) begin
+                    // TODO: Handle offset determined by register (i.e. non-immediate)
+                    // TODO: Handle link register
+                    next_pc = pc + 32'd4 + {{6{branch_offset[23]}}, branch_offset, 2'b0};
+                end
+
+                // Fetch
+                next_inst_fetch = code_memory[pc >> 2];
+            end
+            1'b1: begin // Decode
+                next_inst_decode = inst_fetch;
+                next_Rn_out = register_file[Rn];
+                next_Rd_out = register_file[Rd];
+            end
+        endcase
         // Output to debug port
         debug_port_vector[1*8:5*8-1] = pc;
         debug_port_vector[5*8:7*8-1] = {
@@ -107,13 +125,14 @@ module cpu(
             // Stages of instruction value
             // Every stage
             pc <= next_pc;
-            // Fetch
-            inst_fetch <= code_memory[pc >> 2];
-            // Decode
-            inst_decode <= inst_fetch;
+            inst_fetch <= next_inst_fetch;
+            inst_decode <= next_inst_decode;
             // TODO: This output is one clock cycle behind instruction parsing
             Rn_out <= register_file[Rn];
             Rd_out <= register_file[Rd];
+
+            // NEW
+            ps <= ns;
         end
         else begin
             inst_fetch <= `BIT_WIDTH'b0;
@@ -121,6 +140,8 @@ module cpu(
             pc <= `BIT_WIDTH'b0;
             Rn_out <= `BIT_WIDTH'b0;
             Rd_out <= `BIT_WIDTH'b0;
+
+            ps <= 1'b0;
         end
     end
 
