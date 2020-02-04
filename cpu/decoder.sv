@@ -12,7 +12,7 @@ module decoder(
 		output logic [23:0] branch_offset,
 		output logic [11:0] mem_offset,
 		output logic branch_link,
-		output logic is_load,
+		output logic is_load
 	);
 
 	assign condition = inst[31:28];

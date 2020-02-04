@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+import io
+import struct
 import sys
 
 import serial
@@ -65,6 +67,12 @@ def _write_loop(port):
         # Done writing
         yield None
 
+def _io_unpack(struct_format, buf):
+    """Reads from io.BytesIO with format according to struct_format"""
+    size = struct.calcsize(struct_format)
+    data = buf.read(size)
+    return struct.unpack(struct_format, data)
+
 def parse_cycle_output(cycle_count, cycle_output):
     """Parse one cycle output"""
     _DATA_OPCODES = {
@@ -99,10 +107,9 @@ def parse_cycle_output(cycle_count, cycle_output):
         # Hack to wait for initialization
         print('Waiting...')
         return
+    buf_io = io.BytesIO(cycle_output)
     # Decode instruction from USB debug port
-    pc = int.from_bytes(cycle_output[:4], 'big')
-    format = cycle_output[15] % (1 << 2)
-    condition = cycle_output[15] >> 2
+    pc, condition, format = _io_unpack('>I2B', buf_io)
     print(f'pc={pc}', end=' ')
     if condition in _COND_CODES:
         print(f'{_COND_CODES[condition]}', end=' ')
@@ -110,33 +117,31 @@ def parse_cycle_output(cycle_count, cycle_output):
         printf(f'unknown cond={condition}', end=' ')
     if format == 0:
         # Data processing
-        Rn_out = int.from_bytes(cycle_output[4:8], 'big')
-        Rd_out = int.from_bytes(cycle_output[8:12], 'big')
-        opcode = cycle_output[12] >> 4
-        Rn = cycle_output[12] % (1 << 4)
-        tmp = int.from_bytes(cycle_output[13:15], 'big')
-        Rd = tmp >> 12
-        operand = tmp % (1 << 12)
+        struct_format = '>IIBB'
+        (
+            Rn_out, Rd_out,
+            opcode, Rn, Rd,
+            operand
+        ) = _io_unpack('>2I3BH', buf_io)
         if opcode in _DATA_OPCODES:
             print(_DATA_OPCODES[opcode], end=' ')
         else:
             print(f'Unknown data op ({bin(opcode)})', end=' ')
-        print(f'R{Rn}={Rn_out}, R{Rd}={Rd_out}, operand={operand}')
+        print(f'Rd[{Rd}]={Rd_out}, Rn[{Rn}]={Rn_out}, operand={operand}')
     elif format == 1:
         # Memory instruction
-        Rn_out = int.from_bytes(cycle_output[4:8], 'big')
-        Rd_out = int.from_bytes(cycle_output[8:12], 'big')
-        Rn = cycle_output[12] >> 4
-        Rd = cycle_output[12] % (1 << 4)
-        tmp = int.from_bytes(cycle_output[13:15], 'big')
-        mem_inst_name = 'LDR' if tmp >> 12 else 'STR'
-        mem_offset = tmp % (1 << 12)
-        print(f'{mem_inst_name} R{Rn}={Rn_out} R{Rd}={Rd_out} offset={mem_offset}')
+        (
+            Rn_out, Rd_out,
+            Rn, Rd, is_load,
+            mem_offset
+        ) = _io_unpack('>2I3BH', buf_io)
+        mem_inst_name = 'LDR' if is_load else 'STR'
+        print(f'{mem_inst_name} Rd[{Rd}]={Rd_out} Rn[{Rn}]={Rn_out} offset={mem_offset}')
     elif format == 2:
         # Branch instruction
-        branch_offset = int.from_bytes(cycle_output[4:7], 'big')
-        branch_link = 'L' if cycle_output[7] else ''
-        print(f'B{branch_link} offset={branch_offset}')
+        branch_offset, branch_link = _io_unpack('>IB', buf_io)
+        branch_name = 'BL' if branch_link else 'B'
+        print(f'{branch_name} offset={branch_offset}')
     else:
         print(f'ERROR: Unknown instruction format: {format}')
 

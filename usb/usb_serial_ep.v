@@ -59,7 +59,6 @@ module usb_serial_ep (
 
   reg out_data_valid;
   reg uart_rx_ready;
-  reg [7:0] uart_rx_data;
 
   always @(posedge clk) begin
 	uart_rx_strobe <= 0;

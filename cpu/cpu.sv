@@ -12,7 +12,7 @@ module cpu(
         input wire clk,
         input wire nreset,
         output wire led,
-        output wire [8:`DEBUG_BYTES*8-1] debug_port_vector,
+        output wire [8:`DEBUG_BYTES*8-1] debug_port_vector
     );
 
     // Executable code
@@ -59,28 +59,42 @@ module cpu(
         end
         // Output to debug port
         debug_port_vector[1*8:5*8-1] = pc;
-        debug_port_vector[16*8:17*8-1] = {2'b0, condition, format};
+        debug_port_vector[5*8:7*8-1] = {
+            4'b0, condition, // 1 byte
+            6'b0, format // 1 byte
+        };
         case (format)
             // data processing
             2'b00: begin
-                debug_port_vector[5*8:9*8-1] = Rn_out;
-                debug_port_vector[9*8:13*8-1] = Rd_out;
-                debug_port_vector[13*8:14*8-1] = {opcode, Rn};
-                debug_port_vector[14*8:16*8-1] = {Rd, operand};
+                debug_port_vector[7*8:20*8-1] = {
+                    Rn_out, // 4 bytes
+                    Rd_out, // 4 bytes
+                    4'b0, opcode, // 1 byte
+                    4'b0, Rn, // 1 byte
+                    4'b0, Rd, // 1 byte
+                    4'b0, operand // 2 bytes
+                };
             end
             // memory instruction
             2'b01: begin
-                debug_port_vector[5*8:9*8-1] = Rn_out;
-                debug_port_vector[9*8:13*8-1] = Rd_out;
-                debug_port_vector[13*8:14*8-1] = {Rn, Rd};
-                debug_port_vector[14*8:16*8-1] = {3'b0, is_load, mem_offset};
+                debug_port_vector[8*8:20*8-1] = {
+                    Rn_out, // 4 bytes
+                    Rd_out, // 4 bytes
+                    4'b0, Rn, // 1 byte
+                    4'b0, Rd, // 1 byte
+                    7'b0, is_load, // 1 byte
+                    4'b0, mem_offset // 2 bytes
+                };
             end
             // branch instruction
             2'b10: begin
-                debug_port_vector[5*8:8*8-1] = branch_offset;
-                debug_port_vector[8*8:9*8-1] = {7'b0, branch_link};
+                debug_port_vector[8*8:12*8-1] = {
+                    8'b0, branch_offset, // 4 bytes
+                    7'b0, branch_link // 1 byte
+                };
             end
             default: begin
+                // TODO: Assert here
                 debug_port_vector[8:`DEBUG_BYTES*8-1] = 256'b0;
             end
         endcase
@@ -116,6 +130,6 @@ module cpu(
         .condition(condition),
         .opcode(opcode), .format(format), .Rn(Rn), .Rd(Rd), .operand(operand),
         .branch_offset(branch_offset), .mem_offset(mem_offset),
-        .branch_link(branch_link), .is_load(is_load),
-        );
+        .branch_link(branch_link), .is_load(is_load)
+    );
 endmodule
