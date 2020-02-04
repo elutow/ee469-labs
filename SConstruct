@@ -246,7 +246,7 @@ vcd = Builder(
 env.Append(BUILDERS={'IVerilog': iverilog, 'VCD': vcd})
 
 # --- Verify
-vout = env.IVerilog(TARGET, src_synth)
+vout = env.IVerilog(TARGET, src_cpu)
 
 verify = env.Alias('verify', vout)
 AlwaysBuild(verify)
