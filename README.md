@@ -35,35 +35,3 @@ To get verbose place & route output during builds, use the following:
 ```sh
 apio build --verbose-nextpnr
 ```
-
-## Lab 1 Notes
-
-General notes:
-
-- Support condition codes on all instructions
-- No need to support pre/post indexing for instructions
-
-## ARM Optional Bit Flags
-
-- S - sets condition codes
-- B - byte operation
-- H - halfword operation
-- T - forces address translation.
-
-## ARM Instructions
-
-- B
-  - This one definitely needs to support condition codes
-- BL
-- LDR
-- Data processing instructions (TODO: Reference)
-  - ADD
-  - SUB
-  - CMP
-  - TST
-  - TEQ
-  - EOR
-  - BIC
-  - ORR
-  - MOV
-  - MVN
