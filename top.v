@@ -152,7 +152,7 @@ module top (
 
   cpu the_cpu(
     .clk(clk_a1hz), .nreset(slow_resetn), .led(pin_led),
-    .debug_port_vector(debug_port_vector),
+    .debug_port_vector(debug_port_vector)
 );
 
 // Out delay slows down output to the serial port.  The CPU runs at ~ 1Hz

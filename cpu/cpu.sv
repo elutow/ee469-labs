@@ -12,7 +12,9 @@ module cpu(
         input wire clk,
         input wire nreset,
         output wire led,
+        /* verilator lint_off LITENDIAN */
         output wire [8:`DEBUG_BYTES*8-1] debug_port_vector
+        /* verilator lint_on LITENDIAN */
     );
 
     // Executable code
@@ -95,7 +97,7 @@ module cpu(
             end
             // memory instruction
             2'b01: begin
-                debug_port_vector[8*8:20*8-1] = {
+                debug_port_vector[7*8:20*8-1] = {
                     Rn_out, // 4 bytes
                     Rd_out, // 4 bytes
                     4'b0, Rn, // 1 byte
@@ -106,14 +108,14 @@ module cpu(
             end
             // branch instruction
             2'b10: begin
-                debug_port_vector[8*8:12*8-1] = {
+                debug_port_vector[7*8:12*8-1] = {
                     8'b0, branch_offset, // 4 bytes
                     7'b0, branch_link // 1 byte
                 };
             end
             default: begin
                 // TODO: Assert here
-                debug_port_vector[8:`DEBUG_BYTES*8-1] = 256'b0;
+                debug_port_vector[8:`DEBUG_BYTES*8-1] = 248'b0;
             end
         endcase
     end

@@ -83,6 +83,9 @@ module decoder(
 						// B
 					end // else
 			end
+			default: begin
+				$error("Invalid instruction format");
+			end
 		endcase
 	end // comb
 

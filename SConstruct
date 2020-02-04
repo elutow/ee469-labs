@@ -27,7 +27,7 @@ VERILATOR_ALL = ARGUMENTS.get('all', False)
 VERILATOR_NO_STYLE = ARGUMENTS.get('nostyle', False)
 VERILATOR_NO_WARN = ARGUMENTS.get('nowarn', '').split(',')
 VERILATOR_WARN = ARGUMENTS.get('warn', '').split(',')
-VERILATOR_TOP = ARGUMENTS.get('top', 'top')
+VERILATOR_TOP = ARGUMENTS.get('top', 'cpu')
 VERILATOR_PARAM_STR = ''
 for warn in VERILATOR_NO_WARN:
     if warn != '':
@@ -108,9 +108,13 @@ def list_files_scan(node, env, path):
 
 list_scanner = env.Scanner(function=list_files_scan)
 
+# Get all cpu/ verilog files
+cpu_verilog_nodes = Glob('cpu/*.v') + Glob('cpu/*.sv')
+src_cpu = [str(f) for f in cpu_verilog_nodes]
+
 # -- Get a list of all the verilog files in the src folfer, in ASCII, with
 # -- the full path. All these files are used for the simulation
-v_nodes = Glob('*.v') + Glob('usb/*.v') + Glob('cpu/*.v') + Glob('cpu/*.sv')
+v_nodes = Glob('*.v') + Glob('usb/*.v') + cpu_verilog_nodes
 src_sim = [str(f) for f in v_nodes]
 
 # --------- Get the Testbench file (there should be only 1)
@@ -270,7 +274,7 @@ verilator = Builder(
 env.Append(BUILDERS={'Verilator': verilator})
 
 # --- Lint
-lout = env.Verilator(TARGET, src_synth)
+lout = env.Verilator(TARGET, src_cpu)
 
 lint = env.Alias('lint', lout)
 AlwaysBuild(lint)
