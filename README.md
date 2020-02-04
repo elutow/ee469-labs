@@ -33,7 +33,7 @@ Alternatively, you can use Atom with `apio-ide`.
 To get verbose place & route output during builds, use the following:
 
 ```sh
-apio build --verbose-arachne
+apio build --verbose-nextpnr
 ```
 
 ## Lab 1 Notes
