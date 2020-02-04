@@ -27,7 +27,7 @@ VERILATOR_ALL = ARGUMENTS.get('all', False)
 VERILATOR_NO_STYLE = ARGUMENTS.get('nostyle', False)
 VERILATOR_NO_WARN = ARGUMENTS.get('nowarn', '').split(',')
 VERILATOR_WARN = ARGUMENTS.get('warn', '').split(',')
-VERILATOR_TOP = ARGUMENTS.get('top', '')
+VERILATOR_TOP = ARGUMENTS.get('top', 'top')
 VERILATOR_PARAM_STR = ''
 for warn in VERILATOR_NO_WARN:
     if warn != '':
@@ -82,6 +82,12 @@ VLIB_FILES = ' '.join(VLIB_F) if VLIB_PATH else ''
 ICEBOX_PATH = os.environ['ICEBOX'] if 'ICEBOX' in os.environ else ''
 CHIPDB_PATH = os.path.join(ICEBOX_PATH, 'chipdb-{0}.txt'.format(FPGA_SIZE))
 VERILATOR_PATH = os.environ['VERLIB'] if 'VERLIB' in os.environ else ''
+
+# Yosys modules to include for Verilator linting
+YOSYS_LIBRARIES = (
+	'ice40/cells_sim.v',
+)
+YOSYS_LIBRARIES = tuple(map(lambda x: os.path.join(ICEBOX_PATH, '..', 'yosys', x), YOSYS_LIBRARIES))
 
 isWindows = 'Windows' == system()
 VVP_PATH = '' if isWindows or not IVL_PATH else '-M "{0}"'.format(IVL_PATH)
@@ -251,8 +257,9 @@ AlwaysBuild(waves)
 
 # -- Verilator builder
 verilator = Builder(
-    action='verilator --lint-only -I{0} {1} {2} {3} {4} $SOURCES'.format(
+    action='verilator --lint-only -I{0} {1} {2} {3} {4} {5} $SOURCES'.format(
         VERILATOR_PATH,
+		' '.join(map('-v {}'.format, YOSYS_LIBRARIES)),
         '-Wall' if VERILATOR_ALL else '',
         '-Wno-style' if VERILATOR_NO_STYLE else '',
         VERILATOR_PARAM_STR if VERILATOR_PARAM_STR else '',
