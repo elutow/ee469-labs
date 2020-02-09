@@ -16,6 +16,7 @@ Requirements:
 	* We used Python 3 when installing Python modules, e.g. on Debian: `pip3 install ...`
 2. `pip3 install -r requirements.txt`
 3. If you are setting up Atom, install `apio-ide` by typing in `FPGAwars/apio-ide` and selecting to download from git. This will fix any `apio` version incompatibility warnings.
+4. Install dependencies for cocotb: https://cocotb.readthedocs.io/en/latest/quickstart.html#native-linux-installation
 
 ## Uploading to FPGA
 
