@@ -7,6 +7,12 @@ export VERILATOR_COVERAGE_BIN=../../bin/verilator_coverage
 export VERILATOR_TRACE=1
 export PYTHON_BIN?=python
 
+ifeq ($(OS),Msys)
+PYTHONPATH := $(CURDIR)/..;$(PYTHONPATH)
+else
+PYTHONPATH := $(CURDIR)/..:$(PYTHONPATH)
+endif
+
 # Set clock precision for Verilator to improve performance
 COCOTB_HDL_TIMEPRECISION = 1us
 

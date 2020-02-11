@@ -8,6 +8,10 @@ from cocotb.regression import TestFactory
 from cocotb.scoreboard import Scoreboard
 from cocotb.result import TestFailure, TestSuccess
 
+from cpu_output import parse_cycle_output
+
+# From cpu/constants.svh
+DEBUG_BYTES = 32
 
 @cocotb.test()
 async def test_cpu(dut):
@@ -21,10 +25,12 @@ async def test_cpu(dut):
     dut.cpu_nreset <= 0
     await clkedge
     dut.cpu_nreset <= 1
-    await clkedge
+    dut._log.debug('Reset complete')
 
-    # Wait 100 clock cycles
-    for _ in range(100):
+    for cycle_count in range(32):
+        dut._log.debug(f'Running CPU cycle {cycle_count}')
+        debug_port_bytes = dut.cpu_debug_port_vector.value.integer.to_bytes(DEBUG_BYTES-1, 'big')
+        parse_cycle_output(cycle_count, debug_port_bytes)
         await clkedge
 
 
