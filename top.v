@@ -1,3 +1,5 @@
+`include "cpu/constants.svh"
+
 module top (
   input  pin_clk,
 
@@ -113,7 +115,7 @@ module top (
     if (clk_locked)
       slow_reset_cnt <= slow_reset_cnt + !slow_resetn;
 
-  localparam debug_bytes = 32; // must be power of two
+  localparam debug_bytes = `DEBUG_BYTES; // must be power of two
   localparam debug_bytes_l2 = $clog2(debug_bytes);
 
   reg [7:0] data[0:debug_bytes - 1];

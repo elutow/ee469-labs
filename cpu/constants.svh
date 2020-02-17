@@ -8,7 +8,7 @@
 `define REG_COUNT 16
 // TODO: Change to correct number of instructions
 `define INST_COUNT 64
-// TODO: Combine with debug_bytes constant in top.v
+// DEBUG_BYTES Must be power of 2
 `define DEBUG_BYTES 32
 
 `endif
