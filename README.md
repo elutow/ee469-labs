@@ -1,6 +1,6 @@
 # UW ECE/CSE 469 Labs and Final Project
 
-This branch contains the code for Lab 1. The parent branch is `upstream`.
+This branch contains the code for Lab 2. The parent branch is `upstream`.
 
 This repository contains the code for the UW EE/CSE 469 Labs and Final Project.
 
@@ -28,42 +28,29 @@ apio upload
 
 Alternatively, you can use Atom with `apio-ide`.
 
+## Testing
+
+Requirements:
+
+1. Install dependencies for cocotb: https://cocotb.readthedocs.io/en/latest/quickstart.html#native-linux-installation
+2. Install GTKwave. For Debian/Ubuntu: `# apt install gtkwave`
+
+Tests are written in cocotb with the Verilator backend. To run the cocotb tests:
+
+```sh
+apio verify
+```
+
+To show the waveform from the tests (requires GTKwave to be installed):
+
+```sh
+apio sim
+```
+
 ## Development Notes
 
 To get verbose place & route output during builds, use the following:
 
 ```sh
-apio build --verbose-arachne
+apio build --verbose-nextpnr
 ```
-
-## Lab 1 Notes
-
-General notes:
-
-- Support condition codes on all instructions
-- No need to support pre/post indexing for instructions
-
-## ARM Optional Bit Flags
-
-- S - sets condition codes
-- B - byte operation
-- H - halfword operation
-- T - forces address translation.
-
-## ARM Instructions
-
-- B
-  - This one definitely needs to support condition codes
-- BL
-- LDR
-- Data processing instructions (TODO: Reference)
-  - ADD
-  - SUB
-  - CMP
-  - TST
-  - TEQ
-  - EOR
-  - BIC
-  - ORR
-  - MOV
-  - MVN

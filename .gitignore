@@ -3,6 +3,10 @@
 /hardware.bin
 /hardware.json
 /hardware.rpt
+*.o
+
+# Python ignore
+__pycache__/
 
 # https://raw.githubusercontent.com/github/gitignore/master/Global/macOS.gitignore
 

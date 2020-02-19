@@ -1,0 +1,29 @@
+TODO:
+
+- (Pipelining issue) Register values for immediate register read after register write
+
+Modules shared between modules:
+- regfile
+
+Cycles with modules:
+
+=== Cycle 0 ===
+
+fetcher
+- Fetch instruction
+
+=== Cycle 1 ===
+
+decoder
+- Read regfile
+
+=== Cycle 2 ===
+
+executor
+- Executes the instruction
+- Access data memory (load or store). This serves the function of the memory access stage
+
+=== Cycle 3 ===
+
+writeback
+- Write back to regfile

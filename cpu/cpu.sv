@@ -1,27 +1,21 @@
-// TODO: Move macros to include
-// Register & instruction depths
-`define BIT_WIDTH 32
-// Size of register file
-`define REG_COUNT 16
-// TODO: Change to correct number of instructions
-`define INST_COUNT 64
-// TODO: Combine with debug_bytes constant in top.v
-`define DEBUG_BYTES 32
+// Top-level module for the ARM 32 CPU
+// Responsibilities:
+// - Controls the Program Counter state
+// - Manages the state of all stages of instruction execution
+
+`include "cpu/constants.svh"
 
 module cpu(
         input wire clk,
         input wire nreset,
         output wire led,
-        output wire [8:`DEBUG_BYTES*8-1] debug_port_vector,
+        /* verilator lint_off LITENDIAN */
+        output wire [8:`DEBUG_BYTES*8-1] debug_port_vector
+        /* verilator lint_on LITENDIAN */
     );
 
-    // Executable code
-    reg [`BIT_WIDTH-1:0] code_memory [0:`INST_COUNT-1];
-    // Register file and outputs
-    reg [`BIT_WIDTH-1:0] register_file [0:`REG_COUNT-1];
-    logic [`BIT_WIDTH-1:0] Rn_out, Rd_out;
     // Current instruction
-    logic [`BIT_WIDTH-1:0] inst_fetch, inst_decode;
+    logic [`BIT_WIDTH-1:0] inst_fetch, inst_decode, next_inst_fetch, next_inst_decode;
     // Program Counter
     logic [`BIT_WIDTH-1:0] pc, next_pc;
     // Decoder outputs
@@ -35,12 +29,8 @@ module cpu(
     logic [11:0] mem_offset;
     logic branch_link;
     logic is_load;
-
-    initial begin
-        //$readmemh("testcode/code.hex", code_memory);
-        $readmemh("cpu/lab1_code.hex", code_memory);
-        $readmemh("cpu/regfile_init.hex", register_file);
-    end
+    // CPU internal state
+    logic ps, ns;
 
     // Turn on LED when reset is not on
     assign led = nreset;
@@ -49,39 +39,69 @@ module cpu(
     // signal indicating when the decoding is completely done.
     // Also, have an input control signal that tells it to process the next instruction
     always_comb begin
-        // Update program counter
-        next_pc = pc + `BIT_WIDTH'd4;
-        // TODO: Move instruction formats to constants
-        if (format == 2'b10) begin
-            // TODO: Handle offset determined by register (i.e. non-immediate)
-            // TODO: Handle link register
-            next_pc = branch_offset;
-        end
+        // Always go to next state
+        ns = ~ps;
+        next_inst_fetch = inst_fetch;
+        next_inst_decode = inst_decode;
+        case (ps)
+            1'b0: begin // Fetch
+                // Update program counter
+                next_pc = pc + `BIT_WIDTH'd4;
+                // TODO: Move instruction formats to constants
+                if (format == 2'b10) begin
+                    // TODO: Handle offset determined by register (i.e. non-immediate)
+                    // TODO: Handle link register
+                    next_pc = pc + 32'd4 + {{6{branch_offset[23]}}, branch_offset, 2'b0};
+                end
+
+                // Fetch
+                next_inst_fetch = `BIT_WIDTH'b0;
+            end
+            1'b1: begin // Decode
+                next_inst_decode = inst_fetch;
+                next_Rn_out = register_file[Rn];
+                next_Rd_out = register_file[Rd];
+            end
+        endcase
         // Output to debug port
         debug_port_vector[1*8:5*8-1] = pc;
-        debug_port_vector[16*8:17*8-1] = {2'b0, condition, format};
+        debug_port_vector[5*8:7*8-1] = {
+            4'b0, condition, // 1 byte
+            6'b0, format // 1 byte
+        };
         case (format)
             // data processing
             2'b00: begin
-                debug_port_vector[5*8:9*8-1] = Rn_out;
-                debug_port_vector[9*8:13*8-1] = Rd_out;
-                debug_port_vector[13*8:14*8-1] = {opcode, Rn};
-                debug_port_vector[14*8:16*8-1] = {Rd, operand};
+                debug_port_vector[7*8:20*8-1] = {
+                    Rn_out, // 4 bytes
+                    Rd_out, // 4 bytes
+                    4'b0, opcode, // 1 byte
+                    4'b0, Rn, // 1 byte
+                    4'b0, Rd, // 1 byte
+                    4'b0, operand // 2 bytes
+                };
             end
             // memory instruction
             2'b01: begin
-                debug_port_vector[5*8:9*8-1] = Rn_out;
-                debug_port_vector[9*8:13*8-1] = Rd_out;
-                debug_port_vector[13*8:14*8-1] = {Rn, Rd};
-                debug_port_vector[14*8:16*8-1] = {3'b0, is_load, mem_offset};
+                debug_port_vector[7*8:20*8-1] = {
+                    Rn_out, // 4 bytes
+                    Rd_out, // 4 bytes
+                    4'b0, Rn, // 1 byte
+                    4'b0, Rd, // 1 byte
+                    7'b0, is_load, // 1 byte
+                    4'b0, mem_offset // 2 bytes
+                };
             end
             // branch instruction
             2'b10: begin
-                debug_port_vector[5*8:8*8-1] = branch_offset;
-                debug_port_vector[8*8:9*8-1] = {7'b0, branch_link};
+                debug_port_vector[7*8:12*8-1] = {
+                    8'b0, branch_offset, // 4 bytes
+                    7'b0, branch_link // 1 byte
+                };
             end
             default: begin
-                debug_port_vector[8:`DEBUG_BYTES*8-1] = 256'b0;
+                // TODO: Assert here
+                debug_port_vector[8:`DEBUG_BYTES*8-1] = 248'b0;
             end
         endcase
     end
@@ -93,13 +113,14 @@ module cpu(
             // Stages of instruction value
             // Every stage
             pc <= next_pc;
-            // Fetch
-            inst_fetch <= code_memory[pc >> 2];
-            // Decode
-            inst_decode <= inst_fetch;
+            inst_fetch <= next_inst_fetch;
+            inst_decode <= next_inst_decode;
             // TODO: This output is one clock cycle behind instruction parsing
             Rn_out <= register_file[Rn];
             Rd_out <= register_file[Rd];
+
+            // NEW
+            ps <= ns;
         end
         else begin
             inst_fetch <= `BIT_WIDTH'b0;
@@ -107,6 +128,8 @@ module cpu(
             pc <= `BIT_WIDTH'b0;
             Rn_out <= `BIT_WIDTH'b0;
             Rd_out <= `BIT_WIDTH'b0;
+
+            ps <= 1'b0;
         end
     end
 
@@ -116,6 +139,6 @@ module cpu(
         .condition(condition),
         .opcode(opcode), .format(format), .Rn(Rn), .Rd(Rd), .operand(operand),
         .branch_offset(branch_offset), .mem_offset(mem_offset),
-        .branch_link(branch_link), .is_load(is_load),
-        );
+        .branch_link(branch_link), .is_load(is_load)
+    );
 endmodule

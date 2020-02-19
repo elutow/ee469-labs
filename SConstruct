@@ -9,9 +9,10 @@
 
 import os
 import re
+import sys
 from platform import system
 
-from SCons.Script import (Builder, DefaultEnvironment, Default, AlwaysBuild,
+from SCons.Script import (Builder, Command, Clean, DefaultEnvironment, Default, AlwaysBuild,
                           GetOption, Exit, COMMAND_LINE_TARGETS, ARGUMENTS,
                           Variables, Help, Glob)
 
@@ -27,7 +28,7 @@ VERILATOR_ALL = ARGUMENTS.get('all', False)
 VERILATOR_NO_STYLE = ARGUMENTS.get('nostyle', False)
 VERILATOR_NO_WARN = ARGUMENTS.get('nowarn', '').split(',')
 VERILATOR_WARN = ARGUMENTS.get('warn', '').split(',')
-VERILATOR_TOP = ARGUMENTS.get('top', 'top')
+VERILATOR_TOP = ARGUMENTS.get('top', 'cpu')
 VERILATOR_PARAM_STR = ''
 for warn in VERILATOR_NO_WARN:
     if warn != '':
@@ -82,10 +83,15 @@ VLIB_FILES = ' '.join(VLIB_F) if VLIB_PATH else ''
 ICEBOX_PATH = os.environ['ICEBOX'] if 'ICEBOX' in os.environ else ''
 CHIPDB_PATH = os.path.join(ICEBOX_PATH, 'chipdb-{0}.txt'.format(FPGA_SIZE))
 VERILATOR_PATH = os.environ['VERLIB'] if 'VERLIB' in os.environ else ''
+VERILATOR_TESTS = ','.join(map(
+    lambda x: os.path.splitext(os.path.basename(str(x)))[0],
+    Glob('tests/*_cocotb.py')))
+COCOTB_DUT_PATH = 'tests/gen/cocotb_dut.sv'
+COCOTB_DUT_NAME = 'cocotb_dut'
 
 # Yosys modules to include for Verilator linting
 YOSYS_LIBRARIES = (
-	'ice40/cells_sim.v',
+    'ice40/cells_sim.v',
 )
 YOSYS_LIBRARIES = tuple(map(lambda x: os.path.join(ICEBOX_PATH, '..', 'yosys', x), YOSYS_LIBRARIES))
 
@@ -108,9 +114,13 @@ def list_files_scan(node, env, path):
 
 list_scanner = env.Scanner(function=list_files_scan)
 
+# Get all cpu/ verilog files
+cpu_verilog_nodes = Glob('cpu/*.v') + Glob('cpu/*.sv')
+src_cpu = [str(f) for f in cpu_verilog_nodes]
+
 # -- Get a list of all the verilog files in the src folfer, in ASCII, with
 # -- the full path. All these files are used for the simulation
-v_nodes = Glob('*.v') + Glob('usb/*.v') + Glob('cpu/*.v') + Glob('cpu/*.sv')
+v_nodes = Glob('*.v') + Glob('usb/*.v') + cpu_verilog_nodes
 src_sim = [str(f) for f in v_nodes]
 
 # --------- Get the Testbench file (there should be only 1)
@@ -121,30 +131,8 @@ list_tb = [f for f in src_sim if f[-5:].upper() in ['_TB.V', '_TB.SV']]
 if len(list_tb) > 1:
     print('Warning: more than one testbenches used')
 
-# -- Error checking
-try:
-    testbench = list_tb[0]
-
-# -- there is no testbench
-except IndexError:
-    testbench = None
-
 SIMULNAME = ''
 TARGET_SIM = ''
-
-# clean
-if len(COMMAND_LINE_TARGETS) == 0:
-    if testbench is not None:
-        # -- Simulation name
-        SIMULNAME, ext = os.path.splitext(testbench)
-# sim
-elif 'sim' in COMMAND_LINE_TARGETS:
-    if testbench is None:
-        print('Error: no testbench found for simulation')
-        Exit(1)
-
-    # -- Simulation name
-    SIMULNAME, ext = os.path.splitext(testbench)
 
 # -- Target sim name
 if SIMULNAME:
@@ -176,7 +164,7 @@ except IndexError:
 
 # -- Define the Sintesizing Builder
 synth = Builder(
-    action='yosys -p \"read_verilog -sv -formal $SOURCES ; synth_ice40 -json $TARGET\" {}'.format(
+    action='yosys -p \"read_verilog -sv $SOURCES ; synth_ice40 -json $TARGET\" {}'.format(
         '' if VERBOSE_ALL or VERBOSE_YOSYS else '-q'
     ),
     suffix='.json',
@@ -224,42 +212,50 @@ rpt = env.Time(asc)
 t = env.Alias('time', rpt)
 AlwaysBuild(t)
 
-# -- Icarus Verilog builders
-iverilog = Builder(
-    action='iverilog {0} -g2005-sv -o $TARGET -D VCD_OUTPUT={1} {2} $SOURCES'.format(
-        IVER_PATH, TARGET_SIM, VLIB_FILES),
-    suffix='.out',
-    src_suffix=['.v', '.sv'],
-    source_scanner=list_scanner)
+# -- Generate cocotb DUT module
+cocotb_dut_builder = Command(
+    File(COCOTB_DUT_PATH), src_cpu,
+    f'{sys.executable} tests/generate_cocotb_dut.py $TARGET'
+)
+AlwaysBuild(cocotb_dut_builder)
 
-# NOTE: output file name is defined in the iverilog call using VCD_OUTPUT macro
-vcd = Builder(
-    action='vvp {0} $SOURCE'.format(
-        VVP_PATH),
-    suffix='.vcd',
-    src_suffix='.out')
+# -- cocotb + verilator builder
+src_cocotb = src_cpu.copy()
+src_cocotb.append(COCOTB_DUT_PATH)
+src_cocotb_abs = tuple(map(os.path.abspath, src_cocotb))
+cocotb_out = [Dir('tests/build'), Dir('tests/sim_build'), File('tests/dump.vcd'), File('tests/results.xml')]
+cocotb_builder = Command(
+    cocotb_out, File(COCOTB_DUT_PATH),
+    'make PYTHON_BIN={0} VERILOG_SOURCES="{1}" TOPLEVEL={2} MODULE="{3}"'.format(
+        sys.executable, ' '.join(src_cocotb_abs), COCOTB_DUT_NAME, VERILATOR_TESTS),
+    chdir='tests')
+Clean(cocotb_builder, cocotb_out)
+AlwaysBuild(cocotb_builder)
 
-env.Append(BUILDERS={'IVerilog': iverilog, 'VCD': vcd})
+vcd_fst = Command(
+    'tests/dump.vcd.fst', 'tests/dump.vcd',
+    'vcd2fst -p $SOURCE $TARGET')
 
 # --- Verify
-vout = env.IVerilog(TARGET, src_synth)
+# Check that we have cocotb test modules
+if 'verify' in COMMAND_LINE_TARGETS:
+    if not VERILATOR_TESTS:
+        print('Error: no cocotb tests found under "tests" directory')
+        Exit(1)
 
-verify = env.Alias('verify', vout)
+verify = env.Alias('verify', cocotb_builder)
 AlwaysBuild(verify)
 
 # --- Simulation
-sout = env.IVerilog(TARGET_SIM, src_sim)
-vcd_file = env.VCD(sout)
-
-waves = env.Alias('sim', vcd_file, 'gtkwave {0} {1}.gtkw'.format(
-    vcd_file[0], SIMULNAME))
+waves = env.Alias('sim', vcd_fst, 'gtkwave {0}'.format(
+    vcd_fst[0]))
 AlwaysBuild(waves)
 
 # -- Verilator builder
 verilator = Builder(
     action='verilator --lint-only -I{0} {1} {2} {3} {4} {5} $SOURCES'.format(
         VERILATOR_PATH,
-		' '.join(map('-v {}'.format, YOSYS_LIBRARIES)),
+        ' '.join(map('-v {}'.format, YOSYS_LIBRARIES)),
         '-Wall' if VERILATOR_ALL else '',
         '-Wno-style' if VERILATOR_NO_STYLE else '',
         VERILATOR_PARAM_STR if VERILATOR_PARAM_STR else '',
@@ -270,7 +266,7 @@ verilator = Builder(
 env.Append(BUILDERS={'Verilator': verilator})
 
 # --- Lint
-lout = env.Verilator(TARGET, src_synth)
+lout = env.Verilator(TARGET, src_cpu)
 
 lint = env.Alias('lint', lout)
 AlwaysBuild(lint)
@@ -279,4 +275,6 @@ Default(bitstream)
 
 # -- These is for cleaning the files generated using the alias targets
 if GetOption('clean'):
-    env.Default([t, vout, sout, vcd_file])
+    env.Default([t, cocotb_builder, vcd_fst])
+
+# vim: set expandtab shiftwidth=4 softtabstop=4:

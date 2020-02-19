@@ -1,3 +1,5 @@
+`include "cpu/constants.svh"
+
 module top (
   input  pin_clk,
 
@@ -113,7 +115,7 @@ module top (
     if (clk_locked)
       slow_reset_cnt <= slow_reset_cnt + !slow_resetn;
 
-  localparam debug_bytes = 32; // must be power of two
+  localparam debug_bytes = `DEBUG_BYTES; // must be power of two
   localparam debug_bytes_l2 = $clog2(debug_bytes);
 
   reg [7:0] data[0:debug_bytes - 1];
@@ -152,7 +154,7 @@ module top (
 
   cpu the_cpu(
     .clk(clk_a1hz), .nreset(slow_resetn), .led(pin_led),
-    .debug_port_vector(debug_port_vector),
+    .debug_port_vector(debug_port_vector)
 );
 
 // Out delay slows down output to the serial port.  The CPU runs at ~ 1Hz
