@@ -6,6 +6,35 @@ import struct
 
 """Functions to parse output from the TinyFPGA USB port"""
 
+_DATA_OPCODES = {
+    0b0001: 'EOR',
+    0b0010: 'SUB',
+    0b0100: 'ADD',
+    0b1000: 'TST',
+    0b1001: 'TEQ',
+    0b1010: 'CMP',
+    0b1100: 'ORR',
+    0b1101: 'MOV',
+    0b1110: 'BIC',
+    0b1111: 'MVN',
+}
+_COND_CODES = {
+    0b0000: 'EQ',
+    0b0001: 'NE',
+    0b0010: 'CS/HS',
+    0b0011: 'CC/LO',
+    0b0100: 'MI',
+    0b0101: 'PL',
+    0b0110: 'VS',
+    0b0111: 'VC',
+    0b1000: 'HI',
+    0b1010: 'GE',
+    0b1011: 'LT',
+    0b1100: 'GT',
+    0b1101: 'LE',
+    0b1110: 'AL',
+}
+
 def _io_unpack(struct_format, buf):
     """Reads from io.BytesIO with format according to struct_format"""
     size = struct.calcsize(struct_format)
@@ -14,34 +43,6 @@ def _io_unpack(struct_format, buf):
 
 def parse_cycle_output(cycle_count, cycle_output):
     """Parse one cycle output"""
-    _DATA_OPCODES = {
-		0b0001: 'EOR',
-		0b0010: 'SUB',
-		0b0100: 'ADD',
-		0b1000: 'TST',
-		0b1001: 'TEQ',
-		0b1010: 'CMP',
-		0b1100: 'ORR',
-		0b1101: 'MOV',
-		0b1110: 'BIC',
-		0b1111: 'MVN',
-    }
-    _COND_CODES = {
-        0b0000: 'EQ',
-        0b0001: 'NE',
-        0b0010: 'CS/HS',
-        0b0011: 'CC/LO',
-        0b0100: 'MI',
-        0b0101: 'PL',
-        0b0110: 'VS',
-        0b0111: 'VC',
-        0b1000: 'HI',
-        0b1010: 'GE',
-        0b1011: 'LT',
-        0b1100: 'GT',
-        0b1101: 'LE',
-        0b1110: 'AL',
-    }
     if int.from_bytes(cycle_output, 'little') == 0:
         # Hack to wait for initialization
         print('Waiting...')

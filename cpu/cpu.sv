@@ -1,3 +1,8 @@
+// Top-level module for the ARM 32 CPU
+// Responsibilities:
+// - Controls the Program Counter state
+// - Manages the state of all stages of instruction execution
+
 `include "cpu/constants.svh"
 
 module cpu(
@@ -9,11 +14,6 @@ module cpu(
         /* verilator lint_on LITENDIAN */
     );
 
-    // Executable code
-    reg [`BIT_WIDTH-1:0] code_memory [0:`INST_COUNT-1];
-    // Register file and outputs
-    reg [`BIT_WIDTH-1:0] register_file [0:`REG_COUNT-1];
-    logic [`BIT_WIDTH-1:0] Rn_out, Rd_out, next_Rn_out, next_Rd_out;
     // Current instruction
     logic [`BIT_WIDTH-1:0] inst_fetch, inst_decode, next_inst_fetch, next_inst_decode;
     // Program Counter
@@ -31,12 +31,6 @@ module cpu(
     logic is_load;
     // CPU internal state
     logic ps, ns;
-
-    initial begin
-        //$readmemh("testcode/code.hex", code_memory);
-        $readmemh("cpu/lab1_code.hex", code_memory);
-        $readmemh("cpu/regfile_init.hex", register_file);
-    end
 
     // Turn on LED when reset is not on
     assign led = nreset;
@@ -61,7 +55,7 @@ module cpu(
                 end
 
                 // Fetch
-                next_inst_fetch = code_memory[pc >> 2];
+                next_inst_fetch = `BIT_WIDTH'b0;
             end
             1'b1: begin // Decode
                 next_inst_decode = inst_fetch;

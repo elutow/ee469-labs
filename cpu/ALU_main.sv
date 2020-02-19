@@ -1,51 +1,51 @@
 // takes in opcodes from data processing instructions and performs the indicated instruction
 
+`include "cpu/constants.svh"
+
 module ALU_main (
-	input logic [3:0] operation, 
+	input logic [3:0] operation,
 	input logic [31:0] ALU_Rn,
 	input logic [31:0] ALU_operand2,
-	
+
 	output logic [31:0] ALU_result,
 	output logic negative_flag, zero_flag, carry_flag, overflow_flag
 	);
-	
+
 	always_comb begin
 		case (operation)
-			4'b0001: ALU_result = ALU_Rn ^ ALU_operand2;	// EOR
-			4'b0010: ALU_result = ALU_Rn - ALU_operand2;	// SUB
-			4'b0100: ALU_result = ALU_Rn + ALU_operand2;	// ADD
-			4'b1000: begin
+			`DATAOP_EOR: ALU_result = ALU_Rn ^ ALU_operand2;	// EOR
+			`DATAOP_SUB: ALU_result = ALU_Rn - ALU_operand2;	// SUB
+			`DATAOP_ADD: ALU_result = ALU_Rn + ALU_operand2;	// ADD
+			`DATAOP_TST: begin
 				if ((ALU_RN & ALU_operand2) == 0) zero_flag = 1;	// TST	result is discarded, update condition flag
 				else zero_flag = 0;
 			end
-			4'b1001: begin
+			`DATAOP_TEQ: begin
 				if ((ALU_RN & ALU_operand2) == 0) zero_flag = 1;	// TEQ	result is discarded, update condition flag
 				else zero_flag = 0;
-			4'b1010: begin
+			end
+			`DATAOP_CMP: begin
 				if ((ALU_Rn - ALU_operand2) == 0) zero_flag = 1;	// CMP	result is discarded, update condition flag
 				else zero_flag = 0;
-			4'b1100: ALU_result = ALU_Rn | ALU_operand2;		// ORR
-			4'b1101: ALU_result = ALU_operand2;					// MOV
-			4'b1110: ALU_result = ALU_Rn & (~ALU_operand2);	// BIC
-			4'b1111: ALU_result = ~ALU_Rn;						// MVN
+			end
+			`DATAOP_ORR: ALU_result = ALU_Rn | ALU_operand2;		// ORR
+			`DATAOP_MOV: ALU_result = ALU_operand2;					// MOV
+			`DATAOP_BIC: ALU_result = ALU_Rn & (~ALU_operand2);	// BIC
+			`DATAOP_MVN: ALU_result = ~ALU_Rn;						// MVN
 			default: ALU_result = ALU_Rn;
-		
+
 		endcase
-	
-	assign negative_flag = ALU_result[31];	// N flag negative from first bit of Rn (2's complement)
-	assign zero_flag = (ALU_result == 0);	// Z flag zero from resulting 
-	assign carry_flag = (((ALU_result < ALU_Rn) & (operation == 4'b0100) | ((ALU_result > ALU_Rn) & (operation == 4'b0010)));	// C flag carry from unsigned overflow
-	assign overflow_flag = ((ALU_result[32:31] == 2'b10 | (ALU_result[32:31] == 2'b01));	// V flag overflow from signed 2's complement overflow
-	
 	end	// comb
-endmodule 
 
-
+	assign negative_flag = ALU_result[31];	// N flag negative from first bit of Rn (2's complement)
+	assign zero_flag = (ALU_result == 0);	// Z flag zero from resulting
+	assign carry_flag = ((ALU_result < ALU_Rn) & (operation == `DATAOP_ADD)) | ((ALU_result > ALU_Rn) & (operation == `DATAOP_SUB));	// C flag carry from unsigned overflow
+	assign overflow_flag = (ALU_result[32:31] == 2'b10) | (ALU_result[32:31] == 2'b01);	// V flag overflow from signed 2's complement overflow
 
 
 	// condition code snippet for branch and link section
-	
-	logic condition
+
+	logic condition;
 	always_comb begin
 		case (condition_code)
 			4'b0000: condition = zero_flag;			// EQ
@@ -67,3 +67,4 @@ endmodule
 		//	default: // do nothing
 		endcase
 	end	// comb
+endmodule

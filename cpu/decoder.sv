@@ -1,28 +1,70 @@
-// NOTE: Yosys currently does not support enums
-// See https://github.com/YosysHQ/yosys/issues/248
+// Deocdes the instruction into separate signals
+// Also reads the arguments from the regfile
+
+`include "cpu/constants.svh"
 
 module decoder(
-		input logic [31:0] inst,
+		input wire clk,
+		input wire nreset,
+		input wire enable,
+		/* Instruction from fetcher */
+		input logic [`BIT_WIDTH-1:0] inst,
+		/* Instruction decoding outputs */
 		output logic [3:0] condition,
 		output logic [3:0] opcode,
 		output logic [1:0] format,
-		output logic [3:0] Rn,
-		output logic [3:0] Rd,
+		/* NOTE: We need Rn and Rd because we send them over the debug port */
+		output logic [`REG_COUNT_L2-1:0] Rn,
+		output logic [`REG_COUNT_L2-1:0] Rd,
 		output logic [11:0] operand,
 		output logic [23:0] branch_offset,
 		output logic [11:0] mem_offset,
 		output logic branch_link,
-		output logic is_load
+		output logic is_load,
+		/* Regfile I/O */
+		/* regfile_R* is determined directly from inst so we get the result
+		   from regfile at the same clock cycle as cache_inst values */
+		output logic [`REG_COUNT_L2-1:0] regfile_Rn,
+		output logic [`REG_COUNT_L2-1:0] regfile_Rd,
+		output logic [`BIT_WIDTH-1:0] Rn_value,
+		output logic [`BIT_WIDTH-1:0] Rd_value,
+		/* Whether decoder output is ready to be read */
+		output logic ready
 	);
 
-	assign condition = inst[31:28];
-	assign format = inst[27:26];
+    // For synchronous state registers
+    logic next_ready;
+	// Cache instruction to align with regfile
+	logic cached_inst;
+
+	always_ff @(posedge clk) begin
+		if (nreset) begin
+			ready <= next_ready;
+			cached_inst <= inst;
+		end
+		else begin
+			ready <= 1'b0;
+			cached_inst <= `BIT_WIDTH'b0;
+		end
+	end
+
+	// ---Decoding FSM---
+	// NOT READY
+	// - !enable: NOT READY
+	// - enable: READY
+	// READY
+	// - *: NOT READY (because we wait or get new instruction in this cycle)
+	assign next_ready = enable && !ready;
 
 	// Decoding logic
+	assign condition = inst[31:28];
+	assign format = inst[27:26];
 	always_comb begin
 		opcode = 4'bX;
 		Rn = 4'bX;
 		Rd = 4'bX;
+		regfile_Rn = 4'bX;
+		regfile_Rd = 4'bX;
 		operand = 12'bX;
 		mem_offset = 12'bX;
 		branch_offset = 24'bX;
@@ -47,11 +89,13 @@ module decoder(
 		//endcase
 		case (format)
 			// data processing (EOR SUB ADD TST TEQ CMP ORR MOV MVN BIC)
-			2'b00:	begin
-				opcode = inst[24:21];
-				Rn = inst[19:16];
-				Rd = inst[15:12];
-				operand = inst[11:0];
+			`FMT_DATA: begin
+				opcode = cached_inst[24:21];
+				Rn = cached_inst[19:16];
+				Rd = cached_inst[15:12];
+				regfile_Rn = inst[19:16];
+				regfile_Rd = inst[15:12];
+				operand = cached_inst[11:0];
 				//case (opcode)
 				//	0001: // EOR
 				//	0010: // SUB
@@ -66,27 +110,34 @@ module decoder(
 				//	default: // do nothing
 				//endcase
 			end
-			// memory instuction (LDR)
-			2'b01:	begin
-					is_load = inst[20];
-					Rn = inst[19:16];
-					Rd = inst[15:12];
-					mem_offset = inst[11:0];
+			// memory instuction (LDR/STR)
+			`FMT_MEMORY: begin
+				is_load = cached_inst[20];
+				Rn = cached_inst[19:16];
+				Rd = cached_inst[15:12];
+				regfile_Rn = inst[19:16];
+				regfile_Rd = inst[15:12];
+				mem_offset = cached_inst[11:0];
+				// TODO: Handle mem_offset (operand2) values correctly
 			end
 			// branch instuction (B BL)
-			2'b10:	begin
-					branch_link = inst[24];
-					branch_offset = inst[23:0];
-					if (branch_link) begin
-						// BL
-					end else begin
-						// B
-					end // else
+			`FMT_BRANCH: begin
+				branch_link = cached_inst[24];
+				branch_offset = cached_inst[23:0];
+				`ifndef SYNTHESIS
+					if (ready) begin
+						assert(cached_inst[25]) else begin
+							$error("cached_inst[25] should be 1 for branch instructions.");
+						end
+					end
+				`endif
 			end
 			default: begin
-			`ifndef SYNTHESIS
-				$error("Invalid instruction format");
-			`endif
+				`ifndef SYNTHESIS
+					if (ready) begin
+						$error("Invalid instruction format");
+					end
+				`endif
 			end
 		endcase
 	end // comb
