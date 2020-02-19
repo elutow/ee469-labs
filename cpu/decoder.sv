@@ -16,16 +16,24 @@ module decoder(
 		/* NOTE: We need Rn and Rd because we send them over the debug port */
 		output logic [`REG_COUNT_L2-1:0] Rn,
 		output logic [`REG_COUNT_L2-1:0] Rd,
-		output logic [11:0] operand,
+		output logic [3:0] rot,
+		output logic [7:0] immediate_8,
+		output logic [11:0] immediate_12,
+		output logic [4:0] shift_len,
+		output logic [1:0] shift_type,
+		output logic [`REG_COUNT_L2-1:0] Rm,
+		output logic is_immediate,	// remove after moving shifting logic to this module
 		output logic [23:0] branch_offset,
 		output logic [11:0] mem_offset,
 		output logic branch_link,
 		output logic is_load,
+		output logic up_down,
 		/* Regfile I/O */
 		/* regfile_R* is determined directly from inst so we get the result
 		   from regfile at the same clock cycle as cache_inst values */
 		output logic [`REG_COUNT_L2-1:0] regfile_Rn,
 		output logic [`REG_COUNT_L2-1:0] regfile_Rd,
+		output logic [`REG_COUNT_L2:1:0] regfile_Rm,
 		output logic [`BIT_WIDTH-1:0] Rn_value,
 		output logic [`BIT_WIDTH-1:0] Rd_value,
 		/* Whether decoder output is ready to be read */
@@ -65,11 +73,19 @@ module decoder(
 		Rd = 4'bX;
 		regfile_Rn = 4'bX;
 		regfile_Rd = 4'bX;
-		operand = 12'bX;
+		rot = 4'bX;
+		immediate_8 = 8'bX;
+		immediate_12 = 12'bX;
+		shift_len = 5'bX;
+		shift_type = 2'bX;
+		Rm = 4'bX;
+		is_immediate_8 = 1'bX;
+		is_immediate_12 = 1'bX;
 		mem_offset = 12'bX;
 		branch_offset = 24'bX;
 		branch_link = 1'bX;
 		is_load = 1'bX;
+		up_down = 1'bX;
 		//case (condition)
 		//	0000: // EQ
 		//	0001: // NE
@@ -95,7 +111,19 @@ module decoder(
 				Rd = cached_inst[15:12];
 				regfile_Rn = inst[19:16];
 				regfile_Rd = inst[15:12];
-				operand = cached_inst[11:0];
+				//operand = cached_inst[11:0]; superseded
+				if (inst[25]) begin
+					rot = cached_inst[11:8];
+					immediate_8 = cached_isnt[7:0];
+					is_immediate_8 = 1;
+				end else begin
+					shift_len = cached_inst[11:7];
+					shift_type = cached_inst[6:5];
+					Rm = cached_inst[3:0];
+					regfile_Rm = inst[3:0];
+					is_immediate_8 = 0;
+
+				end
 				//case (opcode)
 				//	0001: // EOR
 				//	0010: // SUB
@@ -118,6 +146,16 @@ module decoder(
 				regfile_Rn = inst[19:16];
 				regfile_Rd = inst[15:12];
 				mem_offset = cached_inst[11:0];
+				up_down = cached_inst[23];	// 1 is up, 0 is down
+				if (inst[25])	begin
+					shift_len = cached_inst[11:7];
+					shift_type = cached_inst[6:5];
+					Rm = cached_inst[3:0]
+					is_immediate_12 = 0;
+				end else begin
+					immediate_12 = cached_inst[11:0];
+					is_immediate_12 = 1;
+				end
 				// TODO: Handle mem_offset (operand2) values correctly
 			end
 			// branch instuction (B BL)
