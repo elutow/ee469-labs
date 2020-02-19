@@ -13,7 +13,7 @@ module regfile(
         input logic [`REG_COUNT_L2-1:0] write_addr1,
         input logic [`BIT_WIDTH-1:0] write_value1,
         output logic [`BIT_WIDTH-1:0] pc,
-        input logic [`BIT_WIDTH-1:0] new_pc,
+        input logic [`BIT_WIDTH-1:0] new_pc
     );
 
     // Synchronous values

@@ -32,6 +32,9 @@ module cpu(
     // CPU internal state
     logic ps, ns;
 
+    // TODO: Remove these after stages are finished and attached
+    logic [`BIT_WIDTH-1:0] Rn_out, Rd_out;
+
     // Turn on LED when reset is not on
     assign led = nreset;
 
@@ -59,9 +62,9 @@ module cpu(
             end
             1'b1: begin // Decode
                 next_inst_decode = inst_fetch;
-                next_Rn_out = register_file[Rn];
-                next_Rd_out = register_file[Rd];
-            end
+                //next_Rn_out = register_file[Rn];
+               // //next_Rd_out = register_file[Rd];
+            end//
         endcase
         // Output to debug port
         debug_port_vector[1*8:5*8-1] = pc;
@@ -116,8 +119,8 @@ module cpu(
             inst_fetch <= next_inst_fetch;
             inst_decode <= next_inst_decode;
             // TODO: This output is one clock cycle behind instruction parsing
-            Rn_out <= register_file[Rn];
-            Rd_out <= register_file[Rd];
+            //Rn_out <= register_file[Rn];
+            //Rd_out <= register_file[Rd];
 
             // NEW
             ps <= ns;
@@ -126,19 +129,19 @@ module cpu(
             inst_fetch <= `BIT_WIDTH'b0;
             inst_decode <= `BIT_WIDTH'b0;
             pc <= `BIT_WIDTH'b0;
-            Rn_out <= `BIT_WIDTH'b0;
-            Rd_out <= `BIT_WIDTH'b0;
+            //Rn_out <= `BIT_WIDTH'b0;
+            //Rd_out <= `BIT_WIDTH'b0;
 
             ps <= 1'b0;
         end
     end
 
     // Instantiate modules
-    decoder inst_decoder(
-        .inst(inst_decode),
-        .condition(condition),
-        .opcode(opcode), .format(format), .Rn(Rn), .Rd(Rd), .operand(operand),
-        .branch_offset(branch_offset), .mem_offset(mem_offset),
-        .branch_link(branch_link), .is_load(is_load)
-    );
+    //decoder inst_decoder(
+    //    .inst(inst_decode),
+    //    .condition(condition),
+    //    .opcode(opcode), .format(format), .Rn(Rn), .Rd(Rd), .operand(operand),
+    //    .branch_offset(branch_offset), .mem_offset(mem_offset),
+    //    .branch_link(branch_link), .is_load(is_load)
+    //);
 endmodule

@@ -43,7 +43,7 @@ module decoder(
     // For synchronous state registers
     logic next_ready;
 	// Cache instruction to align with regfile
-	logic cached_inst;
+	logic [`BIT_WIDTH-1:0] cached_inst;
 
 	always_ff @(posedge clk) begin
 		if (nreset) begin

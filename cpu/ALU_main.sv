@@ -72,11 +72,11 @@ module ALU_main (
 			`DATAOP_SUB: ALU_result = ALU_Rn - ALU_operand2;	// SUB
 			`DATAOP_ADD: ALU_result = ALU_Rn + ALU_operand2;	// ADD
 			`DATAOP_TST: begin
-				if ((ALU_RN & ALU_operand2) == 0) zero_flag = 1;	// TST	result is discarded, update condition flag
+				if ((ALU_Rn & ALU_operand2) == 0) zero_flag = 1;	// TST	result is discarded, update condition flag
 				else zero_flag = 0;
 			end
 			`DATAOP_TEQ: begin
-				if ((ALU_RN & ALU_operand2) == 0) zero_flag = 1;	// TEQ	result is discarded, update condition flag
+				if ((ALU_Rn & ALU_operand2) == 0) zero_flag = 1;	// TEQ	result is discarded, update condition flag
 				else zero_flag = 0;
 			end
 			`DATAOP_CMP: begin
@@ -95,11 +95,13 @@ module ALU_main (
 	assign negative_flag = ALU_result[31];	// N flag negative from first bit of Rn (2's complement)
 	assign zero_flag = (ALU_result == 0);	// Z flag zero from resulting
 	assign carry_flag = ((ALU_result < ALU_Rn) & (operation == `DATAOP_ADD)) | ((ALU_result > ALU_Rn) & (operation == `DATAOP_SUB));	// C flag carry from unsigned overflow
-	assign overflow_flag = (ALU_result[32:31] == 2'b10) | (ALU_result[32:31] == 2'b01);	// V flag overflow from signed 2's complement overflow
+	assign overflow_flag = (ALU_result[31:30] == 2'b10) | (ALU_result[31:30] == 2'b01);	// V flag overflow from signed 2's complement overflow
 
 
 	// condition code snippet for branch and link section
+	// TODO: Move this somewhere else
 
+	/*
 	logic condition;
 	always_comb begin
 		case (condition_code)
@@ -122,4 +124,5 @@ module ALU_main (
 		//	default: // do nothing
 		endcase
 	end	// comb
+	*/
 endmodule

@@ -30,9 +30,9 @@ module fetcher(
     end
 
     always_comb begin
-        inst = code_memory[read_addr];
+        inst = code_memory[read_addr[`INST_COUNT_L2-1:0]];
         next_ready = nreset & enable;
-        pc_shifted = pc >> 2;
+        pc_shifted = 30'(pc >> 2); // `BIT_WIDTH - 2
     end
 
     always_ff @(posedge clk) begin
@@ -49,7 +49,7 @@ module fetcher(
             ready <= next_ready;
         end
         else begin
-            read_addr <= `BIT_WIDTH'b0;
+            read_addr <= 30'b0; // `BIT_WIDTH - 2
             ready <= 0;
         end
     end

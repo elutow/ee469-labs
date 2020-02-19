@@ -12,6 +12,6 @@ module executor(
         input wire clk,
         input wire nreset,
         input logic enable,
-        output logic ready,
+        output logic ready
     );
 endmodule

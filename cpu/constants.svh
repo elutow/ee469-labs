@@ -8,10 +8,13 @@
 `define BIT_WIDTH 32
 // Size of register file
 `define REG_COUNT 16
+// log base-2 of REG_COUNT
 `define REG_COUNT_L2 4
 `define REG_PC_INDEX `REG_COUNT_L2'd15
 // TODO: Change to correct number of instructions
 `define INST_COUNT 64
+// log base-2 of INST_COUNT
+`define INST_COUNT_L2 6
 // DEBUG_BYTES Must be power of 2
 `define DEBUG_BYTES 32
 
