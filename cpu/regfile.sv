@@ -13,7 +13,8 @@ module regfile(
         input logic [`REG_COUNT_L2-1:0] write_addr1,
         input logic [`BIT_WIDTH-1:0] write_value1,
         output logic [`BIT_WIDTH-1:0] pc,
-        input logic [`BIT_WIDTH-1:0] new_pc
+        input logic [`BIT_WIDTH-1:0] new_pc,
+        input logic update_pc
     );
 
     // Synchronous values
@@ -43,8 +44,16 @@ module regfile(
         else begin
             read_value2 = register_file[prev_read_addr2];
         end
-        next_pc = new_pc;
+        next_pc = pc;
+        if (update_pc) begin
+            next_pc = new_pc;
+        end
         if (write_enable1 && write_addr1 == `REG_PC_INDEX) begin
+            `ifndef SYNTHESIS
+                assert(!update_pc) else begin
+                    $error("Cannot have update_pc with write on PC register simultaneously");
+                end
+            `endif
             next_pc = write_value1;
         end
     end

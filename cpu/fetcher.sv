@@ -6,11 +6,13 @@
 
 module fetcher(
         input wire clk,
+        // FSM control logic
         input wire nreset,
-        input logic [`BIT_WIDTH-1:0] pc,
         input wire enable,
-        output logic [`BIT_WIDTH-1:0] inst,
-        output logic ready
+        output logic ready,
+        // Datapath I/O
+        input logic [`BIT_WIDTH-1:0] pc,
+        output logic [`BIT_WIDTH-1:0] inst
     );
 
     // Executable code
@@ -26,7 +28,7 @@ module fetcher(
 
     initial begin
         //$readmemh("testcode/code.hex", code_memory);
-        $readmemh("cpu/lab1_code.hex", code_memory);
+        $readmemh("cpu/lab2_code.hex", code_memory);
     end
 
     always_comb begin

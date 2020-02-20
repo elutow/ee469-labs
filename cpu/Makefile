@@ -1,6 +1,6 @@
 #!/usr/bin/make -f
 
-TARGET=lab1_code
+TARGET=lab2_code
 
 .PHONY: all clean
 

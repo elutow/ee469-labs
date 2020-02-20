@@ -13,7 +13,6 @@ module decoder(
 		output logic [3:0] condition,
 		output logic [3:0] opcode,
 		output logic [1:0] format,
-		/* NOTE: We need Rn and Rd because we send them over the debug port */
 		output logic [`REG_COUNT_L2-1:0] Rn,
 		output logic [`REG_COUNT_L2-1:0] Rd,
 		output logic [3:0] rot,
@@ -29,13 +28,15 @@ module decoder(
 		output logic is_load,
 		output logic up_down,
 		/* Regfile I/O */
-		/* regfile_R* is determined directly from inst so we get the result
+		/* regfile_* is determined directly from inst so we get the result
 		   from regfile at the same clock cycle as cache_inst values */
 		output logic [`REG_COUNT_L2-1:0] regfile_Rn,
+		output logic [`REG_COUNT_L2-1:0] regfile_operand2reg,
 		output logic [`REG_COUNT_L2-1:0] regfile_Rd,
-		output logic [`REG_COUNT_L2:1:0] regfile_Rm,
+		input logic [`BIT_WIDTH-1:0] regfile_Rn_value,
+		input logic [`BIT_WIDTH-1:0] regfile_operand2reg_value,
 		output logic [`BIT_WIDTH-1:0] Rn_value,
-		output logic [`BIT_WIDTH-1:0] Rd_value,
+		output logic [`BIT_WIDTH-1:0] operand2reg_value,
 		/* Whether decoder output is ready to be read */
 		output logic ready
 	);
@@ -59,10 +60,15 @@ module decoder(
 	// ---Decoding FSM---
 	// NOT READY
 	// - !enable: NOT READY
-	// - enable: READY
+	// - enable: READY (and we have already told regfile the new values to read)
 	// READY
 	// - *: NOT READY (because we wait or get new instruction in this cycle)
 	assign next_ready = enable && !ready;
+
+	// Regfile values are ready in our FSM's READY state, so just forward the
+	// regfile values to our outputs
+	assign Rn_value = regfile_Rn_value;
+	assign operand2reg_value = regfile_operand2reg_value;
 
 	// Decoding logic
 	assign condition = inst[31:28];
