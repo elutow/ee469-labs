@@ -61,7 +61,7 @@ module ALU_main (
 				`SHIFT_ROR: offset = {ALU_Rm[ALU_shift_len - 1:0], ALU_Rm[31:ALU_shift_len]};
 			endcase
 			if (up_down) Rn_temp = ALU_Rn + offset;
-			else Rn_temp = ALU_Rn + offset;
+			else Rn_temp = ALU_Rn - offset;
 		end
 
 	end	// comb
