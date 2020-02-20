@@ -103,21 +103,21 @@ module ALU_main (
 	logic condition;
 	always_comb begin
 		case (condition_code)
-			4'b0000: condition = zero_flag;			// EQ
-			4'b0001: condition = ~zero_flag;			// NE
-			4'b0010: condition = carry_flag;			// CS/HS
-			4'b0011: condition = ~carry_flag;		// CC/LO
-			4'b0100: condition = negative_flag;		// MI
-			4'b0101: condition = ~negative_flag;	// PL
-			4'b0110: condition = overflow_flag;		// VS
-			4'b0111: condition = ~overflow_flag;	// VC
-			4'b1000: condition = carry_flag & ~zero_flag;	// HI
-			4'b1001: condition = ~carry_flag & zero_flag;	// LS
-			4'b1010: condition = (negative_flag == overflow_flag);	// GE
-			4'b1011: condition = (negative_flag !== overflow_flag);	// LT
-			4'b1100: condition = ~zero_flag & (negative_flag == overflow_flag);	// GT
-			4'b1101: condition = zero_flag | (negative_flag !== overflow_flag);	// LE
-			4'b1110: condition = 1;	// AL
+			`COND_EQ: condition = zero_flag;			// EQ
+			`COND_NE: condition = ~zero_flag;			// NE
+			`COND_CS_HS: condition = carry_flag;			// CS/HS
+			`COND_CC_LO: condition = ~carry_flag;		// CC/LO
+			`COND_MI: condition = negative_flag;		// MI
+			`COND_PL: condition = ~negative_flag;	// PL
+			`COND_VS: condition = overflow_flag;		// VS
+			`COND_VC: condition = ~overflow_flag;	// VC
+			`COND_HI: condition = carry_flag & ~zero_flag;	// HI
+			`COND_LS: condition = ~carry_flag & zero_flag;	// LS
+			`COND_GE: condition = (negative_flag == overflow_flag);	// GE
+			`COND_LT: condition = (negative_flag !== overflow_flag);	// LT
+			`COND_GT: condition = ~zero_flag & (negative_flag == overflow_flag);	// GT
+			`COND_LE: condition = zero_flag | (negative_flag !== overflow_flag);	// LE
+			`COND_AL: condition = 1;	// AL
 			default: condition = 1;
 		//	default: // do nothing
 		endcase

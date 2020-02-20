@@ -8,7 +8,7 @@
 `define BIT_WIDTH 32
 // Size of register file
 `define REG_COUNT 16
-`define REG_COUNT_L2 $clog2(`REG_COUNT)
+`define REG_COUNT_L2 4
 `define REG_PC_INDEX `REG_COUNT_L2'd15
 // TODO: Change to correct number of instructions
 `define INST_COUNT 64
@@ -41,10 +41,15 @@
 `define COND_VS 4'b0110
 `define COND_VC 4'b0111
 `define COND_HI 4'b1000
+`define COND_LS 4'b1001
 `define COND_GE 4'b1010
 `define COND_LT 4'b1011
 `define COND_GT 4'b1100
 `define COND_LE 4'b1101
 `define COND_AL 4'b1110
-
+// Shift types
+`define SHIFT_LSL 2'b00
+`define SHIFT_LSR 2'b01
+`define SHIFT_ASR 2'b10
+`define SHIFT_ROR 2'b11
 `endif
