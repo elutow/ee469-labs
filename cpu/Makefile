@@ -7,7 +7,7 @@ TARGET=lab2_code
 default: $(TARGET).hex
 
 $(TARGET).o: $(TARGET).s
-	arm-linux-gnueabi-gcc-8 -o $(TARGET).o -c $(TARGET).s
+	arm-linux-gnueabi-gcc -o $(TARGET).o -c $(TARGET).s
 
 $(TARGET).hex: $(TARGET).o
 	./elftohex.sh $(TARGET).o $(TARGET).hex
