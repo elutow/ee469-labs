@@ -15,6 +15,6 @@ module regfilewriter(
         input logic [`BIT_WIDTH-1:0] new_pc,
         input logic update_Rd, // Whether we should update Rd (result) in writeback
         input logic [`REG_COUNT_L2-1:0] Rd, // Result register to save
-        input logic [`BIT_WIDTH-1:0] Rd_value,
+        input logic [`BIT_WIDTH-1:0] Rd_value
     );
 endmodule

@@ -49,7 +49,7 @@ function automatic [`REG_COUNT_L2-1:0] decode_Rn;
     input [`BIT_WIDTH-1:0] inst;
 
     `ifndef SYNTHESIS
-        logic [3:0] format;
+        logic [1:0] format;
         assign format = decode_format(inst);
         assert(format == `FMT_DATA || format == `FMT_MEMORY) else begin
             $error("decode_Rn: inst is not in data or memory formats: %h", inst);
@@ -63,7 +63,7 @@ function automatic [`REG_COUNT_L2-1:0] decode_Rd;
     input [`BIT_WIDTH-1:0] inst;
 
     `ifndef SYNTHESIS
-        logic [3:0] format;
+        logic [1:0] format;
         assign format = decode_format(inst);
         assert(format == `FMT_DATA || format == `FMT_MEMORY) else begin
             $error("decode_Rd: inst is not in data or memory formats: %h", inst);
@@ -231,7 +231,11 @@ module decoder(
 				`FMT_BRANCH: begin
 					// No need to read registers
 				end
-				default: $error("This should not run!");
+				default: begin
+					`ifndef SYNTHESIS
+						$error("This should not run!");
+					`endif
+				end
 			endcase
 		end
 	end // comb

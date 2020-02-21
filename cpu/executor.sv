@@ -19,14 +19,18 @@ function automatic [`BIT_WIDTH-1:0] shift_value_by_type;
 
     shift_len = inst[11:7];
     shift_type = inst[6:5];
-    case (shift_type):
+    case (shift_type)
         `SHIFT_LSL: result = Rm_value << shift_len;
         `SHIFT_LSR: result = Rm_value >> shift_len;
         `SHIFT_ASR: result = Rm_value >>> shift_len;
-        `SHIFT_ROR: result = {Rm_value[shift_len - 1:0], Rm_value[31:shift_len]};
+        // TODO: We cannot use shift_len like this. Gets error in "apio lint":
+        // Expecting expression to be constant, but variable isn't const: 'shift_len'
+        //`SHIFT_ROR: result = {Rm_value[shift_len - 1:0], Rm_value[31:shift_len]};
+        // TODO: Remove error when implemented
+        `SHIFT_ROR: $error("SHIFT_ROR unimplemented");
     endcase
 
-    shift_reg_by_type = result;
+    shift_value_by_type = result;
 endfunction
 
 function automatic [`BIT_WIDTH-1:0] shift_dataproc_operand2;
@@ -34,20 +38,26 @@ function automatic [`BIT_WIDTH-1:0] shift_dataproc_operand2;
     input [`BIT_WIDTH-1:0] inst;
     input [`BIT_WIDTH-1:0] Rm_value;
 
+    logic [4:0] rot_len;
+    logic [`BIT_WIDTH-1:0] result;
+    logic [7:0] immediate_8;
+
     `ifndef SYNTHESIS
-        assert(decode_format(inst) == `FMT_DATA) else begin
+        assert (decode_format(inst) == `FMT_DATA) else begin
             $error("shift_dataproc_operand2: inst is not in data format: %h", inst);
         end
     `endif
-
-    logic [4:0] rot_len;
-    logic [`BIT_WIDTH-1:0] result;
 
     if (decode_dataproc_operand2_is_immediate(inst)) begin
         rot_len = {inst[11:8], 1'b0}; // Multiply rot by 2
         immediate_8 = inst[7:0]; // TODO: What is this used for?
         // TODO: Do we rotate immediate 8 or ALU_Rm???
-        result = {Rm_value[rot_len - 1:0], Rm_value[`BIT_WIDTH-1:rot_len]};
+        // TODO: We cannot use rot_len like this. Gets error in "apio lint":
+        // Expecting expression to be constant, but variable isn't const: 'rot_len'
+        //result = {Rm_value[rot_len - 1:0], Rm_value[`BIT_WIDTH-1:rot_len]};
+        result = Rm_value;
+        // TODO: Remove error when implemented
+        $error("dataproc operand2 immediates not supported");
     end else begin
         result = shift_value_by_type(inst, Rm_value);
     end
@@ -62,12 +72,15 @@ function automatic [`BIT_WIDTH-1:0] shift_mem_offset;
     input [`BIT_WIDTH-1:0] Rm_value;
 
     logic [`BIT_WIDTH-1:0] offset;
+    logic up_down;
 
     `ifndef SYNTHESIS
         assert(decode_format(inst) == `FMT_MEMORY) else begin
             $error("shift_mem_offset: inst is not in memory format: %h", inst);
         end
     `endif
+
+    up_down = decode_mem_up_down(inst);
 
     if (decode_mem_offset_is_immediate(inst)) begin
         offset = {20'b0, inst[11:0]}; // 12-bit immediate
@@ -125,18 +138,19 @@ function automatic [`BIT_WIDTH:0] run_dataproc_operation;
     run_dataproc_operation = {store_result, result};
 endfunction
 
-function automatic compute_cpsr;
+function automatic [`CPSR_SIZE-1:0] compute_cpsr;
     input [`BIT_WIDTH-1:0] dataproc_result;
+    input [`BIT_WIDTH-1:0] Rn_value;
     input [3:0] operation;
 
     logic [`CPSR_SIZE-1:0] cpsr;
 
-    cpsr[`CPSR_NEGATIVE_IDX] = ALU_result[31];    // N flag negative from first bit of Rn (2's complement)
-    cpsr[`CPSR_ZERO_IDX] = (ALU_result == 0);    // Z flag zero from resulting
-    cpsr[`CPSR_CARRY_IDX] = ((ALU_result < ALU_Rn) & (operation == `DATAOP_ADD))
-        | ((ALU_result > ALU_Rn) & (operation == `DATAOP_SUB));    // C flag carry from unsigned overflow
+    cpsr[`CPSR_NEGATIVE_IDX] = dataproc_result[31];    // N flag negative from first bit of Rn (2's complement)
+    cpsr[`CPSR_ZERO_IDX] = (dataproc_result == 0);    // Z flag zero from resulting
+    cpsr[`CPSR_CARRY_IDX] = ((dataproc_result < Rn_value) & (operation == `DATAOP_ADD))
+        | ((dataproc_result > Rn_value) & (operation == `DATAOP_SUB));    // C flag carry from unsigned overflow
     // TODO: TST and TEQ shouldn't set overflow flag?
-    cpsr[`CPSR_OVERFLOW_IDX] = (ALU_result[31:30] == 2'b10) | (ALU_result[31:30] == 2'b01);    // V flag overflow from signed 2's complement overflow
+    cpsr[`CPSR_OVERFLOW_IDX] = (dataproc_result[31:30] == 2'b10) | (dataproc_result[31:30] == 2'b01);    // V flag overflow from signed 2's complement overflow
 
     compute_cpsr = cpsr;
 endfunction
@@ -149,12 +163,14 @@ function automatic check_condition;
     logic zero_flag;
     logic carry_flag;
     logic overflow_flag;
+
+    logic condition;
+
     negative_flag = cpsr[`CPSR_NEGATIVE_IDX];
     zero_flag = cpsr[`CPSR_ZERO_IDX];
     carry_flag = cpsr[`CPSR_CARRY_IDX];
     overflow_flag = cpsr[`CPSR_OVERFLOW_IDX];
 
-    logic condition;
     case (condition_code)
         `COND_EQ: condition = zero_flag;            // EQ
         `COND_NE: condition = ~zero_flag;            // NE
