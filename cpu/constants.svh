@@ -4,6 +4,8 @@
 // NOTE: Yosys currently does not support enums
 // See https://github.com/YosysHQ/yosys/issues/248
 
+// TODO: Change define macros to localparam
+
 // Register & instruction depths
 `define BIT_WIDTH 32
 // Size of register file
@@ -17,6 +19,7 @@
 `define INST_COUNT_L2 6
 // Size of data memory in bytes
 `define DATA_SIZE 64
+`define DATA_SIZE_L2 6
 // DEBUG_BYTES Must be power of 2
 `define DEBUG_BYTES 32
 
@@ -57,4 +60,14 @@
 `define SHIFT_LSR 2'b01
 `define SHIFT_ASR 2'b10
 `define SHIFT_ROR 2'b11
-`endif
+// CPSR constants
+// NOTE: We only store the subset of the CPSR we care about
+// i.e. N, Z, C, V
+// so we only need 4 bits
+`define CPSR_SIZE 4
+`define CPSR_NEGATIVE_IDX 3
+`define CPSR_ZERO_IDX 2
+`define CPSR_CARRY_IDX 1
+`define CPSR_OVERFLOW_IDX 0
+
+`endif // _CPU_CONSTANTS_SVH_

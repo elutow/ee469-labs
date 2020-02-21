@@ -1,232 +1,238 @@
-// Deocdes the instruction into separate signals
+// Reads the regfile for the registers needed for execution
 // Also reads the arguments from the regfile
 
 `include "cpu/constants.svh"
 
+function automatic [1:0] decode_format;
+    input [`BIT_WIDTH-1:0] inst;
+
+    logic [1:0] format;
+    format = inst[27:26];
+
+    `ifndef SYNTHESIS
+        case (format)
+            `FMT_DATA: begin end
+            `FMT_MEMORY: begin end
+            `FMT_BRANCH: begin
+				assert(inst[25]) else begin
+					$error("cached_inst[25] should be 1 for branch instructions.");
+				end
+            end
+            default: begin
+				$error("Invalid instruction format");
+            end
+        endcase
+    `endif
+
+    decode_format = format;
+endfunction
+
+function automatic [3:0] decode_condition;
+    input [`BIT_WIDTH-1:0] inst;
+
+    decode_condition = inst[31:28];
+endfunction
+
+function automatic [3:0] decode_dataproc_opcode;
+    input [`BIT_WIDTH-1:0] inst;
+
+    `ifndef SYNTHESIS
+        assert(decode_format(inst) == `FMT_DATA) else begin
+            $error("decode_dataproc_opcode: inst is not in data format: %h", inst);
+        end
+    `endif
+
+    decode_dataproc_opcode = inst[24:21];
+endfunction
+
+function automatic [`REG_COUNT_L2-1:0] decode_Rn;
+    input [`BIT_WIDTH-1:0] inst;
+
+    `ifndef SYNTHESIS
+        logic [3:0] format;
+        assign format = decode_format(inst);
+        assert(format == `FMT_DATA || format == `FMT_MEMORY) else begin
+            $error("decode_Rn: inst is not in data or memory formats: %h", inst);
+        end
+    `endif
+
+    decode_Rn = inst[19:16];
+endfunction
+
+function automatic [`REG_COUNT_L2-1:0] decode_Rd;
+    input [`BIT_WIDTH-1:0] inst;
+
+    `ifndef SYNTHESIS
+        logic [3:0] format;
+        assign format = decode_format(inst);
+        assert(format == `FMT_DATA || format == `FMT_MEMORY) else begin
+            $error("decode_Rd: inst is not in data or memory formats: %h", inst);
+        end
+    `endif
+
+    decode_Rd = inst[15:12];
+endfunction
+
+function automatic decode_dataproc_operand2_is_immediate;
+    input [`BIT_WIDTH-1:0] inst;
+
+    `ifndef SYNTHESIS
+        assert(decode_format(inst) == `FMT_DATA) else begin
+            $error("decode_dataproc_operand2_is_immediate: inst is not in data format: %h", inst);
+        end
+    `endif
+
+    decode_dataproc_operand2_is_immediate = inst[25];
+endfunction
+
+function automatic decode_mem_offset_is_immediate;
+    input [`BIT_WIDTH-1:0] inst;
+
+    `ifndef SYNTHESIS
+        assert(decode_format(inst) == `FMT_MEMORY) else begin
+            $error("decode_mem_offset_is_immediate: inst is not in memory format: %h", inst);
+        end
+    `endif
+
+    // NOTE: inst[25] == 0 if it is an immediate
+    decode_mem_offset_is_immediate = !inst[25];
+endfunction
+
+function automatic [`REG_COUNT_L2-1:0] decode_Rm;
+    input [`BIT_WIDTH-1:0] inst;
+
+    `ifndef SYNTHESIS
+		case (decode_format(inst))
+			`FMT_DATA: begin
+				assert(!decode_dataproc_operand2_is_immediate(inst)) else begin
+					$error("decode_Rm: inst is dataproc format but uses immediate");
+				end
+			end
+			`FMT_MEMORY: begin
+				assert(!decode_mem_offset_is_immediate(inst)) else begin
+					$error("decode_Rm: inst is mem format but uses immediate");
+				end
+			end
+			default: begin
+	            $error("decode_Rm: inst is not in data or memory formats: %h", inst);
+			end
+		endcase
+    `endif
+
+    decode_Rm = inst[3:0];
+endfunction
+
+function automatic decode_mem_is_load;
+    // 1 if LDR, 0 if STR
+    input [`BIT_WIDTH-1:0] inst;
+
+    `ifndef SYNTHESIS
+        assert(decode_format(inst) == `FMT_MEMORY) else begin
+            $error("decode_mem_is_load: inst is not in memory format: %h", inst);
+        end
+    `endif
+
+    decode_mem_is_load = inst[20];
+endfunction
+
+function automatic decode_mem_up_down;
+    // 1 is up, 0 is down
+    input [`BIT_WIDTH-1:0] inst;
+
+    `ifndef SYNTHESIS
+        assert(decode_format(inst) == `FMT_MEMORY) else begin
+            $error("decode_mem_up_down: inst is not in memory format: %h", inst);
+        end
+    `endif
+
+    decode_mem_up_down = inst[23];
+endfunction
+
 module decoder(
 		input wire clk,
 		input wire nreset,
-		input wire enable,
-		/* Instruction from fetcher */
-		input logic [`BIT_WIDTH-1:0] inst,
-		/* Instruction decoding outputs */
-		output logic [3:0] condition,
-		output logic [3:0] opcode,
-		output logic [1:0] format,
-		output logic [`REG_COUNT_L2-1:0] Rn,
-		output logic [`REG_COUNT_L2-1:0] Rd,
-		output logic [3:0] rot,
-		output logic [7:0] immediate_8,
-		output logic [11:0] immediate_12,
-		output logic [4:0] shift_len,
-		output logic [1:0] shift_type,
-		output logic [`REG_COUNT_L2-1:0] Rm,
-		output logic is_immediate,	// remove after moving shifting logic to this module
-		output logic [23:0] branch_offset,
-		output logic [11:0] mem_offset,
-		output logic branch_link,
-		output logic is_load,
-		output logic up_down,
-		/* Regfile I/O */
-		/* regfile_* is determined directly from inst so we get the result
-		   from regfile at the same clock cycle as cache_inst values */
-		output logic [`REG_COUNT_L2-1:0] regfile_Rn,
-		output logic [`REG_COUNT_L2-1:0] regfile_operand2reg,
-		output logic [`REG_COUNT_L2-1:0] regfile_Rd,
-		input logic [`BIT_WIDTH-1:0] regfile_Rn_value,
-		input logic [`BIT_WIDTH-1:0] regfile_operand2reg_value,
-		output logic [`BIT_WIDTH-1:0] Rn_value,
-		output logic [`BIT_WIDTH-1:0] operand2reg_value,
-		/* Whether decoder output is ready to be read */
-		output logic ready
+		input logic enable,
+		// Whether decoder output is ready to be read
+		output logic ready,
+		// Instruction from fetcher
+		input logic [`BIT_WIDTH-1:0] fetcher_inst,
+		// Instruction decoding outputs
+		output logic [`BIT_WIDTH-1:0] decoder_inst,
+		// Regfile I/O
+		// regfile_read_addr* is determined directly from inst so we get the
+		//   result from regfile at the same clock cycle as cache_inst values
+		output logic [`REG_COUNT_L2-1:0] regfile_read_addr1,
+		output logic [`REG_COUNT_L2-1:0] regfile_read_addr2,
+		input logic [`BIT_WIDTH-1:0] regfile_read_value1,
+		input logic [`BIT_WIDTH-1:0] regfile_read_value2,
+		output logic [`BIT_WIDTH-1:0] Rn_value, // First operand
+		output logic [`BIT_WIDTH-1:0] Rm_value // Second operand for operand2 or offset
 	);
 
-    // For synchronous state registers
+	// Control logic
+	// ---Decoding FSM---
+	// NOT READY
+	// - !enable -> NOT READY
+	// - enable -> READY
+	// 		- Tell regfile the new values to read
+	// READY
+    // - enable -> READY (keep processing at 1 instruction / cycle)
+	// - !enable -> NOT READY (because we wait or get new instruction in this cycle)
     logic next_ready;
-	// Cache instruction to align with regfile
-	logic [`BIT_WIDTH-1:0] cached_inst;
-
+	assign next_ready = enable;
 	always_ff @(posedge clk) begin
 		if (nreset) begin
 			ready <= next_ready;
-			cached_inst <= inst;
 		end
 		else begin
 			ready <= 1'b0;
-			cached_inst <= `BIT_WIDTH'b0;
+		end
+	end // ff
+
+	// Datapath logic
+	assign Rn_value = regfile_read_value1;
+	assign Rm_value = regfile_read_value2;
+	// Determine instruction to output from decoder
+	logic [`BIT_WIDTH-1:0] next_decoder_inst;
+	always_comb begin
+		next_decoder_inst = decoder_inst;
+		if (next_ready) begin
+			next_decoder_inst = fetcher_inst;
 		end
 	end
-
-	// ---Decoding FSM---
-	// NOT READY
-	// - !enable: NOT READY
-	// - enable: READY (and we have already told regfile the new values to read)
-	// READY
-	// - *: NOT READY (because we wait or get new instruction in this cycle)
-	assign next_ready = enable && !ready;
-
-	// Regfile values are ready in our FSM's READY state, so just forward the
-	// regfile values to our outputs
-	assign Rn_value = regfile_Rn_value;
-	assign operand2reg_value = regfile_operand2reg_value;
-
-	// Decoding logic
-	assign condition = inst[31:28];
-	assign format = inst[27:26];
+	always_ff @(posedge clk) begin
+		if (nreset) begin
+			decoder_inst <= next_decoder_inst;
+		end
+		else begin
+			decoder_inst <= `BIT_WIDTH'b0;
+		end
+	end
+	// Determine registers to be read from regfile
+	// NOTE: These operate on next_decoder_inst because we need the regfile to
+	// output on the same clock cycle as decoder_inst is set
 	always_comb begin
-		opcode = 4'bX;
-		Rn = 4'bX;
-		Rd = 4'bX;
-		regfile_Rn = 4'bX;
-		regfile_Rd = 4'bX;
-		rot = 4'bX;
-		immediate_8 = 8'bX;
-		immediate_12 = 12'bX;
-		shift_len = 5'bX;
-		shift_type = 2'bX;
-		Rm = 4'bX;
-		is_immediate_8 = 1'bX;
-		is_immediate_12 = 1'bX;
-		mem_offset = 12'bX;
-		branch_offset = 24'bX;
-		branch_link = 1'bX;
-		is_load = 1'bX;
-		up_down = 1'bX;
-		//case (condition)
-		//	0000: // EQ
-		//	0001: // NE
-		//	0010: // CS/HS
-		//	0011: // CC/LO
-		//	0100: // MI
-		//	0101: // PL
-		//	0110: // VS
-		//	0111: // VC
-		//	1000: // HI
-		//	1010: // GE
-		//	1011: // LT
-		//	1100: // GT
-		//	1101: // LE
-		//	1110: // AL
-		//	default: // do nothing
-		//endcase
-		case (format)
-			// data processing (EOR SUB ADD TST TEQ CMP ORR MOV MVN BIC)
-			`FMT_DATA: begin
-				opcode = cached_inst[24:21];
-				Rn = cached_inst[19:16];
-				Rd = cached_inst[15:12];
-				regfile_Rn = inst[19:16];
-				regfile_Rd = inst[15:12];
-				//operand = cached_inst[11:0]; superseded
-				if (inst[25]) begin
-					rot = cached_inst[11:8];
-					immediate_8 = cached_isnt[7:0];
-					is_immediate_8 = 1;
-				end else begin
-					shift_len = cached_inst[11:7];
-					shift_type = cached_inst[6:5];
-					Rm = cached_inst[3:0];
-					regfile_Rm = inst[3:0];
-					is_immediate_8 = 0;
-
-				end
-				//case (opcode)
-				//	0001: // EOR
-				//	0010: // SUB
-				//	0100: // ADD
-				//	1000: // TST
-				//	1001: // TEQ
-				//	1010: // CMP
-				//	1100: // ORR
-				//	1101: // MOV
-				//	1110: // BIC
-				//	1111: // MVN
-				//	default: // do nothing
-				//endcase
-			end
-			// memory instuction (LDR/STR)
-			`FMT_MEMORY: begin
-				is_load = cached_inst[20];
-				Rn = cached_inst[19:16];
-				Rd = cached_inst[15:12];
-				regfile_Rn = inst[19:16];
-				regfile_Rd = inst[15:12];
-				mem_offset = cached_inst[11:0];
-				up_down = cached_inst[23];	// 1 is up, 0 is down
-				if (inst[25])	begin
-					shift_len = cached_inst[11:7];
-					shift_type = cached_inst[6:5];
-					Rm = cached_inst[3:0]
-					is_immediate_12 = 0;
-				end else begin
-					immediate_12 = cached_inst[11:0];
-					is_immediate_12 = 1;
-				end
-				// TODO: Handle mem_offset (operand2) values correctly
-			end
-			// branch instuction (B BL)
-			`FMT_BRANCH: begin
-				branch_link = cached_inst[24];
-				branch_offset = cached_inst[23:0];
-				`ifndef SYNTHESIS
-					if (ready) begin
-						assert(cached_inst[25]) else begin
-							$error("cached_inst[25] should be 1 for branch instructions.");
-						end
+		regfile_read_addr1 = `REG_COUNT_L2'bX;
+		regfile_read_addr2 = `REG_COUNT_L2'bX;
+		if (next_ready) begin
+			case (decode_format(next_decoder_inst))
+				`FMT_DATA: begin
+					regfile_read_addr1 = decode_Rn(next_decoder_inst);
+					if (!decode_dataproc_operand2_is_immediate(next_decoder_inst)) begin
+						regfile_read_addr2 = decode_Rm(next_decoder_inst);
 					end
-				`endif
-			end
-			default: begin
-				`ifndef SYNTHESIS
-					if (ready) begin
-						$error("Invalid instruction format");
+				end
+				`FMT_MEMORY: begin
+					regfile_read_addr1 = decode_Rn(next_decoder_inst);
+					if (!decode_mem_offset_is_immediate(next_decoder_inst)) begin
+						regfile_read_addr2 = decode_Rm(next_decoder_inst);
 					end
-				`endif
-			end
-		endcase
+				end
+				`FMT_BRANCH: begin
+					// No need to read registers
+				end
+				default: $error("This should not run!");
+			endcase
+		end
 	end // comb
-
-	// 31-28 always 4-bit condtition code
-
-	// ADD R1 = R1 + #3 ex: 1110 0010 1000 0001 0001 0000 0000 0011
-
-	// DATA PROCESSING FORMAT (EOR SUB ADD TST TEQ CMP ORR MOV MVN BIC)
-		// 27-26 = 00
-		// FIGURE OUT 25
-		// 24-21 opcode (arithmetic/logic function)
-		// 20 set condition codes
-		// 19-16 Rn (first operand register)
-		// 15-12 Rd (destination register)
-		// 11-0 operand 2
-
-			// OPCODES
-				// 0001 EOR
-				// 0010 SUB
-				// 0100 ADD
-				// 1000 TST
-				// 1001 TEQ
-				// 1010 CMP
-				// 1100 ORR
-				// 1101 MOV
-				// 1110 BIC
-				// 1111 MVN
-
-	// MEMORY INSTRUCTION FORMAT (LDR)
-		// 27-26 = 01
-		// FIGURE OUT 25
-		// 24 pre/post index
-		// 23 up/down
-		// 22 unsigned byte/word
-		// 21 write-back (auto index)
-		// 20 load/store
-		// 19-16 Rn (base register)
-		// 15-12 Rd (source/ destination register)
-		// 11-0 offest
-
-
-	// BRANCH INSTRUCTION FORMAT (B BL)
-		// 27-25 = 101
-		// 24 link bit
-			// 0 = branch, 1 = brank with link
-		// 23-0 offset
 endmodule
