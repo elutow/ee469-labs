@@ -23,11 +23,7 @@ function automatic [`BIT_WIDTH-1:0] shift_value_by_type;
         `SHIFT_LSL: result = Rm_value << shift_len;
         `SHIFT_LSR: result = Rm_value >> shift_len;
         `SHIFT_ASR: result = Rm_value >>> shift_len;
-        // TODO: We cannot use shift_len like this. Gets error in "apio lint":
-        // Expecting expression to be constant, but variable isn't const: 'shift_len'
-        //`SHIFT_ROR: result = {Rm_value[shift_len - 1:0], Rm_value[31:shift_len]};
-        // TODO: Remove error when implemented
-        `SHIFT_ROR: $error("SHIFT_ROR unimplemented");
+        `SHIFT_ROR: result = (Rm_value << (~shift_len + 1'b1)) | (Rm_value >> shift_len);
     endcase
 
     shift_value_by_type = result;
@@ -50,14 +46,8 @@ function automatic [`BIT_WIDTH-1:0] shift_dataproc_operand2;
 
     if (decode_dataproc_operand2_is_immediate(inst)) begin
         rot_len = {inst[11:8], 1'b0}; // Multiply rot by 2
-        immediate_8 = inst[7:0]; // TODO: What is this used for?
-        // TODO: Do we rotate immediate 8 or ALU_Rm???
-        // TODO: We cannot use rot_len like this. Gets error in "apio lint":
-        // Expecting expression to be constant, but variable isn't const: 'rot_len'
-        //result = {Rm_value[rot_len - 1:0], Rm_value[`BIT_WIDTH-1:rot_len]};
-        result = Rm_value;
-        // TODO: Remove error when implemented
-        $error("dataproc operand2 immediates not supported");
+        immediate_8 = {24'b0, inst[7:0]};
+        result = (immediate_8 << (~rot_len + 1'b1) | (immediate_8 >> rot_len);
     end else begin
         result = shift_value_by_type(inst, Rm_value);
     end
