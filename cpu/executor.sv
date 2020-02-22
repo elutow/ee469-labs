@@ -106,7 +106,7 @@ function automatic [`BIT_WIDTH:0] run_dataproc_operation;
         `DATAOP_TEQ: begin
             // TEQ result is discarded, update condition flag
             store_result = 1'b0;
-            result = Rn_value & operand2;
+            result = Rn_value ^ operand2;
         end
         `DATAOP_CMP: begin
             // CMP result is discarded, update condition flag
@@ -139,8 +139,9 @@ function automatic [`CPSR_SIZE-1:0] compute_cpsr;
     cpsr[`CPSR_ZERO_IDX] = (dataproc_result == 0);    // Z flag zero from resulting
     cpsr[`CPSR_CARRY_IDX] = ((dataproc_result < Rn_value) & (operation == `DATAOP_ADD))
         | ((dataproc_result > Rn_value) & (operation == `DATAOP_SUB));    // C flag carry from unsigned overflow
-    // TODO: TST and TEQ shouldn't set overflow flag?
-    cpsr[`CPSR_OVERFLOW_IDX] = (dataproc_result[31:30] == 2'b10) | (dataproc_result[31:30] == 2'b01);    // V flag overflow from signed 2's complement overflow
+    // only ADD, SUB, CMP can set V flag
+    cpsr[`CPSR_OVERFLOW_IDX] = ((operation == `DATAOP_ADD) | (operation == `DATAOP_SUB) | (operation == `DATAOP_CMP))
+        & ((dataproc_result[31:30] == 2'b10) | (dataproc_result[31:30] == 2'b01));    // V flag overflow from signed 2's complement overflow
 
     compute_cpsr = cpsr;
 endfunction
@@ -271,16 +272,15 @@ module executor(
             case (decode_format(next_executor_inst))
                 // TODO: Support halfword or byte-sized read/write?
                 `FMT_MEMORY: begin
-                    if (decode_mem_is_load(next_executor_inst)) begin
-                        if (decode_mem_offset_is_immediate(next_executor_inst)) begin
-                            //regfile_read_addr2 = decode_Rm(next_executor_inst);
-                        end
+                    regfile_read_addr1 = decode_Rn(next_executor_inst);
+                    // don't care if instruction is LDR or STR
+                    regfile_read_addr2 = decode_Rm(next_executor_inst);
                     end
-                    else begin
-                    end
+                    // data_memory address is just the base register address adjusted by the offset
                 end
                 `FMT_DATA: begin
-                    // TODO
+                    regfile_read_addr1 = decode_Rn(next_executor_inst);
+                    regfile_read_addr2  = decode_Rm(next_executor_inst);
                 end
                 `FMT_BRANCH: begin
                     // TODO
@@ -292,6 +292,9 @@ module executor(
     // Current cycle
     // TODO: Move all logic except determination of output values (Rd_value, new_pc)
     // to before current cycle
+    logic [`BIT_WIDTH:0] operand2;
+    logic [`BIT_WIDTH:0] offset;
+    logic data_read_enable;   // data read corresponds to when the cpu is reading and the memory is writing
     always_comb begin
         Rd_value = `BIT_WIDTH'bX;
         update_Rd = 1'b0;
@@ -300,10 +303,27 @@ module executor(
                 `FMT_BRANCH: begin
                 end
                 `FMT_DATA: begin
+                  Rn_value = regfile_read_value1;
+                  Rm_value = regfile_read_value2;
+                  operand2 = shift_dataproc_operand2(next_executor_inst, Rm_value);
+                  Rd_value = run_dataproc_operation(decode_dataproc_opcode(next_executor_inst), Rn_value, operand2);
                 end
                 `FMT_MEMORY: begin
                     if (!decode_mem_is_load(next_executor_inst)) begin
                         // STR
+                        data_read_enable = 1;
+                        Rn_value = regfile_read_value1;
+                        data_write_addr = decode_Rn(next_executor_inst) + shift_mem_offset;
+                        data_write_value = Rn_value;
+                        // Rd_value = data_read_value;
+                        // Rd is not updated for STR instruction
+                        update_Rd = 1'b0;
+                    end
+                    else begin
+                        // LDR
+                        data_read_enable = 0;
+                        Rm_value = regfile_read_value2;
+                        data_read_addr = decode_Rn(next_executor_inst) + shift_mem_offset(next_executor_inst, Rm_value);
                         Rd_value = data_read_value;
                         update_Rd = 1'b1;
                     end
