@@ -54,7 +54,8 @@ module regfilewriter(
             regfile_write_enable1 = 1'b1;
             if (decode_format(executor_inst) == `FMT_BRANCH
                 && decode_branch_is_link(executor_inst)) begin
-                    // For BL instructions, we write new LR from executor
+                    // NOTE: In executor, we set the write value to the new
+                    // value for the link register
                     regfile_write_addr1 = `REG_LR_INDEX;
             end
             else begin

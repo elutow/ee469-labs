@@ -301,16 +301,22 @@ module executor(
             case (decode_format(next_executor_inst))
                 `FMT_MEMORY: begin
                     mem_offset = compute_mem_offset(next_executor_inst, Rm_value);
+                    `ifndef SYNTHESIS
+                        assert(Rn_value + mem_offset < `INST_COUNT) else begin
+                            $error("Invalid data memory address for Rn %d and mem_offset %d for inst %h",
+                                   Rn_value, mem_offset, next_executor_inst);
+                        end
+                    `endif
                     if (decode_mem_is_load(next_executor_inst)) begin
                         // LDR
-                        next_data_read_addr = Rn_value + mem_offset;
+                        next_data_read_addr = `DATA_SIZE_L2'(Rn_value + mem_offset);
                         next_update_Rd = 1'b1;
                         next_Rd_value = data_read_value;
                     end
                     else begin
                         // STR
                         data_write_enable = 1'b1;
-                        data_write_addr = Rn_value + mem_offset;
+                        data_write_addr = `DATA_SIZE_L2'(Rn_value + mem_offset);
                         data_write_value = Rn_value;
                     end
                 end
@@ -329,13 +335,13 @@ module executor(
                     );
                 end
                 `FMT_BRANCH: begin
-                    // TODO: Which PC are we supposed to use here? pc+8? pc+12?
                     next_update_pc = 1'b1;
-                    next_new_pc = pc + decode_branch_offset(next_executor_inst);
+                    next_new_pc = pc + `BIT_WIDTH'd8 + decode_branch_offset(next_executor_inst);
                     if (decode_branch_is_link(next_executor_inst)) begin
+                        // NOTE: In regfilewriter, we will set the address to
+                        // write to the link register
                         next_update_Rd = 1'b1;
-                        // TODO: Also not sure if this is the right PC here...
-                        next_Rd_value = pc;
+                        next_Rd_value = pc + `BIT_WIDTH'd4;
                     end
                 end
                 default: begin end
@@ -353,7 +359,7 @@ module executor(
         end
         else begin
             cpsr <= `CPSR_SIZE'b0;
-            update_Rd <= `BIT_WIDTH'b0;
+            update_Rd <= 1'b0;
             Rd_value <= `BIT_WIDTH'b0;
             update_pc <= 1'b0;
             new_pc <= `BIT_WIDTH'b0;
@@ -376,7 +382,6 @@ module executor(
         end
         else begin
             data_read_addr <= `DATA_SIZE_L2'b0;
-            data_read_value <= `BIT_WIDTH'b0;
         end
     end
 endmodule
