@@ -1,4 +1,5 @@
 // Manages register file reads and writes, and pc (r15) semantics
+// NOTE: All inputs are clocked
 
 `include "cpu/constants.svh"
 
