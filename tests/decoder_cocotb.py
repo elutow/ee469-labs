@@ -20,8 +20,6 @@ async def run_test(cocotb_dut):
     """Setup testbench and run a test."""
     dut = DUTWrapper(cocotb_dut, _MODULE)
 
-    #cocotb.fork(Clock(dut.c, 10, 'us').start(start_high=False))
-
     # NOTE: This will cause the decoder Verilog to throw an exception,
     # which unfortunately crashes verilator and cocotb right now
     #dut.decoder_inst.setimmediatevalue(0xFFFFFFFF)

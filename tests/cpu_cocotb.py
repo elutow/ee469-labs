@@ -8,7 +8,7 @@ from cocotb.regression import TestFactory
 from cocotb.scoreboard import Scoreboard
 from cocotb.result import TestFailure, TestSuccess
 
-from _tests_common import DUTWrapper
+from _tests_common import DUTWrapper, init_posedge_clk
 
 from cpu_output import parse_cycle_output
 
@@ -23,9 +23,7 @@ async def test_cpu(cocotb_dut):
     """Setup CPUtestbench and run a test."""
     dut = DUTWrapper(cocotb_dut, _MODULE)
 
-    # Start clock running in background
-    cocotb.fork(Clock(dut.clk, 10, 'us').start(start_high=False))
-    clkedge = RisingEdge(dut.clk)
+    clkedge = init_posedge_clk(dut.clk)
 
     # Reset CPU
     dut.nreset <= 0

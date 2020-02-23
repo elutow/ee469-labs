@@ -10,7 +10,7 @@ from cocotb.regression import TestFactory
 from cocotb.scoreboard import Scoreboard
 from cocotb.result import TestFailure, TestSuccess
 
-from _tests_common import DUTWrapper
+from _tests_common import DUTWrapper, init_posedge_clk
 
 # Module to test
 _MODULE = "regfile"
@@ -19,8 +19,6 @@ _MODULE = "regfile"
 async def run_test(cocotb_dut):
     """Setup testbench and run a test."""
     dut = DUTWrapper(cocotb_dut, _MODULE)
-
-    #cocotb.fork(Clock(dut.c, 10, 'us').start(start_high=False))
 
     # NOTE: This will cause the decoder Verilog to throw an exception,
     # which unfortunately crashes verilator and cocotb right now
