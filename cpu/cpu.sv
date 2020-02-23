@@ -30,10 +30,6 @@ module cpu(
     // Turn on LED when reset is not on
     assign led = nreset;
 
-    // TODO: Multicycle logic
-    // TODO: We should assert that only one stage's ready signal is on at a time
-    // for the multicycle only
-
     // Shared modules
 
     logic [`BIT_WIDTH-1:0] regfile_read_inst;
@@ -105,6 +101,21 @@ module cpu(
         .regfile_new_pc(regfile_new_pc),
         .regfile_update_pc(regfile_update_pc)
     );
+
+    // Ensure only one ready signal is asserted at a time
+    `ifndef SYNTHESIS
+    logic [2:0] ready_asserted_count;
+    always_comb begin
+        ready_asserted_count = 3'b0;
+        if (fetcher_ready) ready_asserted_count = ready_asserted_count + 3'b1;
+        if (decoder_ready) ready_asserted_count = ready_asserted_count + 3'b1;
+        if (executor_ready) ready_asserted_count = ready_asserted_count + 3'b1;
+        if (regfilewriter_ready) ready_asserted_count = ready_asserted_count + 3'b1;
+        assert(ready_asserted_count == 3'b1) else begin
+            $error("More than one ready signal asserted!");
+        end
+    end
+    `endif // SYNTHESIS
 
     // CPU FSM
     always_comb begin
