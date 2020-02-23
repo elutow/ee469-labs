@@ -25,7 +25,10 @@ start:
 	eor r4, r5, r6
 	bic r4, r5, r6
 	orr r4, r5, r6
-	ldr r4, [r8]
+	ldr r4, [r8]		@ pull data from memory in [r8]
+	str r5, [r8]		@ store value of r5 into [r8]
+	ldr r4, [r8]		@ check that [r8] held the value of r5 from previous instruction
 	ldr r4, [r8, #2]	@ test immediate offset
 	ldr r4, [r8, +r9, LSL #2]	@ test register shift offset
+
 	b start
