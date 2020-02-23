@@ -13,7 +13,7 @@ from cocotb.result import TestFailure, TestSuccess
 from _tests_common import DUTWrapper
 
 # Module to test
-_MODULE = "decoder"
+_MODULE = "regfile"
 
 @cocotb.test()
 async def run_test(cocotb_dut):
@@ -26,6 +26,8 @@ async def run_test(cocotb_dut):
     # which unfortunately crashes verilator and cocotb right now
     #dut.decoder_inst.setimmediatevalue(0xFFFFFFFF)
 
+    # TODO: Verify single-cycle reads
+    # TODO: Verify single-cycle writes
     # Read instruction hex
     with open('cpu/lab2_code.hex') as lab1_code:
         for inst_hexstr in lab1_code.read().splitlines():

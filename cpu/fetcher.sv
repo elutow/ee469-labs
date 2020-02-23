@@ -50,7 +50,7 @@ module fetcher(
     logic [`BIT_WIDTH-3:0] pc_shifted;
     always_comb begin
         fetcher_inst = code_memory[read_addr[`INST_COUNT_L2-1:0]];
-        pc_shifted = {2'b0, pc[`BIT_WIDTH-1:2]}; // pc >> 2
+        pc_shifted = pc[`BIT_WIDTH-1:2]; // pc >> 2
     end
     always_ff @(posedge clk) begin
         if (nreset) begin
