@@ -213,7 +213,7 @@ module executor(
 
     // Data memory declaration
     // Data memory is a byte-addressable memory space for memory instructions
-    // TODO: We may need to make data_memory word-aligned so it will be synthesized to BRAM
+    // TODO: We need to make data_memory word-aligned so it will be synthesized to BRAM
     // If this is necessary, we should create a data_memory module that can handle
     // byte-aligned read/writes with word-align read/writes
     reg [7:0] data_memory [0:`DATA_SIZE-1];
@@ -271,8 +271,6 @@ module executor(
     logic data_write_enable;
     // Whether we have
     logic condition_passes;
-    // Next cycle comb logic
-    // TODO: Add all execution logic here
     // Whether to store the dataproc instruction result in Rd
     logic [`BIT_WIDTH-1:0] dataproc_operand2;
     logic [`BIT_WIDTH-1:0] dataproc_result;

@@ -46,7 +46,6 @@ module regfile(
     end
 
     always_comb begin
-        // TODO: Verify semantics are correct
         // Condition reads against PC
         if (prev_read_addr1 == `REG_PC_INDEX) begin
             read_value1 = fix_pc_read_value(pc, prev_read_inst);

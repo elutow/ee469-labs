@@ -4,7 +4,7 @@
 // NOTE: Yosys currently does not support enums
 // See https://github.com/YosysHQ/yosys/issues/248
 
-// TODO: Change define macros to localparam
+// TODO: Consider changing define macros to localparam
 
 // Register & instruction depths
 `define BIT_WIDTH 32
@@ -14,7 +14,7 @@
 `define REG_COUNT_L2 4
 `define REG_PC_INDEX `REG_COUNT_L2'd15
 `define REG_LR_INDEX `REG_COUNT_L2'd14
-// TODO: Change to correct number of instructions
+// TODO: Ensure this is correct number of instructions
 `define INST_COUNT 64
 // log base-2 of INST_COUNT
 `define INST_COUNT_L2 6
