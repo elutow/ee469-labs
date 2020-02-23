@@ -187,6 +187,7 @@ module decoder(
 		// Regfile I/O
 		// regfile_read_addr* is determined directly from inst so we get the
 		//   result from regfile at the same clock cycle as cache_inst values
+		output logic [`BIT_WIDTH-1:0] regfile_read_inst,
 		output logic [`REG_COUNT_L2-1:0] regfile_read_addr1,
 		output logic [`REG_COUNT_L2-1:0] regfile_read_addr2,
 		input logic [`BIT_WIDTH-1:0] regfile_read_value1,
@@ -237,6 +238,7 @@ module decoder(
 	// Determine registers to be read from regfile
 	// NOTE: These operate on next_decoder_inst because we need the regfile to
 	// output on the same clock cycle as decoder_inst is set
+	assign regfile_read_inst = next_decoder_inst;
 	always_comb begin
 		regfile_read_addr1 = `REG_COUNT_L2'bX;
 		regfile_read_addr2 = `REG_COUNT_L2'bX;
