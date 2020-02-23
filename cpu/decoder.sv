@@ -161,7 +161,7 @@ function automatic decode_branch_is_link;
     decode_branch_is_link = inst[24];
 endfunction
 
-function automatic [23:0] decode_branch_offset;
+function automatic [`BIT_WIDTH-1:0] decode_branch_offset;
     input [`BIT_WIDTH-1:0] inst;
 
     `ifndef SYNTHESIS
@@ -170,7 +170,8 @@ function automatic [23:0] decode_branch_offset;
         end
     `endif
 
-    decode_branch_offset = inst[23:0];
+	// Extend two's complement to 32 bits
+    decode_branch_offset = {{6{inst[23]}}, inst[23:0], 2'b0};
 endfunction
 
 module decoder(
