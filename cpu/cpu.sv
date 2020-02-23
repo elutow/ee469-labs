@@ -71,46 +71,15 @@ module cpu(
         endcase
         // Output to debug port
         debug_port_vector[1*8:5*8-1] = pc;
-        debug_port_vector[5*8:7*8-1] = {
-            4'b0, condition, // 1 byte
-            6'b0, format // 1 byte
-        };
-        case (format)
-            // data processing
-            2'b00: begin
-                debug_port_vector[7*8:20*8-1] = {
-                    Rn_out, // 4 bytes
-                    Rd_out, // 4 bytes
-                    4'b0, opcode, // 1 byte
-                    4'b0, Rn, // 1 byte
-                    4'b0, Rd, // 1 byte
-                    4'b0, operand // 2 bytes
-                };
-            end
-            // memory instruction
-            2'b01: begin
-                debug_port_vector[7*8:20*8-1] = {
-                    Rn_out, // 4 bytes
-                    Rd_out, // 4 bytes
-                    4'b0, Rn, // 1 byte
-                    4'b0, Rd, // 1 byte
-                    7'b0, is_load, // 1 byte
-                    4'b0, mem_offset // 2 bytes
-                };
-            end
-            // branch instruction
-            2'b10: begin
-                debug_port_vector[7*8:12*8-1] = {
-                    8'b0, branch_offset, // 4 bytes
-                    7'b0, branch_link // 1 byte
-                };
-            end
-            default: begin
-                // TODO: Assert here
-                debug_port_vector[8:`DEBUG_BYTES*8-1] = 248'b0;
-            end
-        endcase
-    end
+        debug_port_vector[5*8:6*8-1] = instruction_stage;
+
+        debug_port_vector[6*8:7*8-1] = regfile_read_addr1;
+        debug_port_vector[7*8:11*8-1] = regfile_read_value1;
+        debug_port_vector[11*8:12*8-1] = regfile_read_addr2;
+        debug_port_vector[12*8:16*8-1] = regfile_read_value2;
+        debug_port_vector[16*8:17*8-1] = regfile_write_addr1;
+        debug_port_vector[17*8:21*8-1] = regfile_write_value1;
+    end   // comb
 
     // TODO: Split into separate always_ff for different pipeline stages
     // Clocked values

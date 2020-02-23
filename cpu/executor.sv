@@ -299,7 +299,6 @@ module executor(
         );
         if (next_ready && condition_passes) begin
             case (decode_format(next_executor_inst))
-                // TODO: Support halfword or byte-sized read/write?
                 `FMT_MEMORY: begin
                     mem_offset = compute_mem_offset(next_executor_inst, Rm_value);
                     if (decode_mem_is_load(next_executor_inst)) begin
