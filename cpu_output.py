@@ -2,7 +2,9 @@
 # -*- coding: utf-8 -*-
 
 import io
+import os
 import struct
+import subprocess
 
 """Functions to parse output from the TinyFPGA USB port"""
 
@@ -34,6 +36,46 @@ _COND_CODES = {
     0b1101: 'LE',
     0b1110: 'AL',
 }
+_SHIFT_CODES = {
+    0b00: 'LSL',
+    0b01: 'LSR',
+    0b10: 'ASR',
+    0b11: 'ROR',
+}
+_INST_FORMAT = {
+    0b00: 'DATA',
+    0b01: 'MEMORY',
+    0b10: 'BRANCH',
+}
+
+def _parse_code_objdump(filename):
+    with open(filename) as file:
+        contents = file.read()
+    contents = contents.split('00000000 <.data>:')[1].strip().splitlines()
+    contents = [line.split(':')[1].strip() for line in contents]
+    contents = [line.split(' ', maxsplit=1) for line in contents]
+    contents = {int(k.strip(), 16): v.strip().replace('\t', ' ') for k, v in contents}
+    return contents
+
+_INST_ASM = _parse_code_objdump('cpu/lab2_code.objdump')
+
+def _decode_instruction(inst_int):
+    return _INST_ASM.get(inst_int, f'(could not get asm for: {hex(inst_int)}')
+
+def _parse_ready_flags(ready_flags):
+    ready_codes = {
+        0b0001: 'WB',
+        0b0010: 'EXE',
+        0b0100: 'DEC',
+        0b1000: 'FET',
+    }
+    asserted_ready = list()
+    for code, short_name in ready_codes.items():
+        if code & ready_flags:
+            asserted_ready.append(short_name)
+    if not asserted_ready:
+        return '(none ready)'
+    return f'({",".join(asserted_ready)})'
 
 def _io_unpack(struct_format, buf):
     """Reads from io.BytesIO with format according to struct_format"""
@@ -49,38 +91,13 @@ def parse_cycle_output(cycle_count, cycle_output):
         return
     buf_io = io.BytesIO(cycle_output)
     # Decode instruction from USB debug port
-    pc, condition, format = _io_unpack('>I2B', buf_io)
-    print(f'pc={pc}', end=' ')
-    if condition in _COND_CODES:
-        print(f'{_COND_CODES[condition]}', end=' ')
-    else:
-        print(f'unknown cond={condition}', end=' ')
-    if format == 0:
-        # Data processing
-        struct_format = '>IIBB'
-        (
-            Rn_out, Rd_out,
-            opcode, Rn, Rd,
-            operand
-        ) = _io_unpack('>2I3BH', buf_io)
-        if opcode in _DATA_OPCODES:
-            print(_DATA_OPCODES[opcode], end=' ')
-        else:
-            print(f'Unknown data op ({bin(opcode)})', end=' ')
-        print(f'Rd[{Rd}]={Rd_out}, Rn[{Rn}]={Rn_out}, operand={operand}')
-    elif format == 1:
-        # Memory instruction
-        (
-            Rn_out, Rd_out,
-            Rn, Rd, is_load,
-            mem_offset
-        ) = _io_unpack('>2I3BH', buf_io)
-        mem_inst_name = 'LDR' if is_load else 'STR'
-        print(f'{mem_inst_name} Rd[{Rd}]={Rd_out} Rn[{Rn}]={Rn_out} offset={mem_offset}')
-    elif format == 2:
-        # Branch instruction
-        branch_offset, branch_link = _io_unpack('>IB', buf_io)
-        branch_name = 'BL' if branch_link else 'B'
-        print(f'{branch_name} offset={branch_offset}')
-    else:
-        print(f'ERROR: Unknown instruction format: {format}')
+    pc, ready_flags = _io_unpack('>IB', buf_io)
+    print(f'pc={pc} {_parse_ready_flags(ready_flags)}', end='\t')
+    regfile_read_addr1, regfile_read_value1 = _io_unpack('>BI', buf_io)
+    print(f'r{regfile_read_addr1}->{regfile_read_value1:#0{10}x}', end=' ')
+    regfile_read_addr2, regfile_read_value2 = _io_unpack('>BI', buf_io)
+    print(f'r{regfile_read_addr2}->{regfile_read_value2:#0{10}x}', end=' ')
+    regfile_write_addr1, regfile_write_value1 = _io_unpack('>BI', buf_io)
+    print(f'r{regfile_write_addr1}<-{regfile_write_value1:#0{10}x}', end='\t')
+    fetcher_inst, = _io_unpack('>I', buf_io)
+    print(_decode_instruction(fetcher_inst))

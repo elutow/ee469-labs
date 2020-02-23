@@ -1,0 +1,29 @@
+
+lab2_code.raw:     file format binary
+
+
+Disassembly of section .data:
+
+00000000 <.data>:
+   0:	e1a04005 	mov	r4, r5
+   4:	e1a04105 	lsl	r4, r5, #2
+   8:	e1a04125 	lsr	r4, r5, #2
+   c:	e1a04145 	asr	r4, r5, #2
+  10:	e1a04165 	ror	r4, r5, #2
+  14:	e1e04005 	mvn	r4, r5
+  18:	e0864007 	add	r4, r6, r7
+  1c:	e2864002 	add	r4, r6, #2
+  20:	e2864bff 	add	r4, r6, #261120	; 0x3fc00
+  24:	e0454006 	sub	r4, r5, r6
+  28:	e1540005 	cmp	r4, r5
+  2c:	e1140005 	tst	r4, r5
+  30:	e1340005 	teq	r4, r5
+  34:	e0254006 	eor	r4, r5, r6
+  38:	e1c54006 	bic	r4, r5, r6
+  3c:	e1854006 	orr	r4, r5, r6
+  40:	e5984000 	ldr	r4, [r8]
+  44:	e5885000 	str	r5, [r8]
+  48:	e5984000 	ldr	r4, [r8]
+  4c:	e5984002 	ldr	r4, [r8, #2]
+  50:	e7984109 	ldr	r4, [r8, r9, lsl #2]
+  54:	eaffffe9 	b	0x0
