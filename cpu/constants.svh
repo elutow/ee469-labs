@@ -13,6 +13,7 @@
 // log base-2 of REG_COUNT
 `define REG_COUNT_L2 4
 `define REG_PC_INDEX `REG_COUNT_L2'd15
+`define REG_LR_INDEX `REG_COUNT_L2'd14
 // TODO: Change to correct number of instructions
 `define INST_COUNT 64
 // log base-2 of INST_COUNT

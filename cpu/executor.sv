@@ -29,7 +29,7 @@ function automatic [`BIT_WIDTH-1:0] shift_value_by_type;
     shift_value_by_type = result;
 endfunction
 
-function automatic [`BIT_WIDTH-1:0] shift_dataproc_operand2;
+function automatic [`BIT_WIDTH-1:0] compute_dataproc_operand2;
     // Shifting for data processing
     input [`BIT_WIDTH-1:0] inst;
     input [`BIT_WIDTH-1:0] Rm_value;
@@ -40,7 +40,7 @@ function automatic [`BIT_WIDTH-1:0] shift_dataproc_operand2;
 
     `ifndef SYNTHESIS
         assert (decode_format(inst) == `FMT_DATA) else begin
-            $error("shift_dataproc_operand2: inst is not in data format: %h", inst);
+            $error("compute_dataproc_operand2: inst is not in data format: %h", inst);
         end
     `endif
 
@@ -52,10 +52,10 @@ function automatic [`BIT_WIDTH-1:0] shift_dataproc_operand2;
         result = shift_value_by_type(inst, Rm_value);
     end
 
-    shift_dataproc_operand2 = result;
+    compute_dataproc_operand2 = result;
 endfunction
 
-function automatic [`BIT_WIDTH-1:0] shift_mem_offset;
+function automatic [`BIT_WIDTH-1:0] compute_mem_offset;
     // Returns the offset for memory instructions (via shifting)
     // (The offset is applied to Rn)
     input [`BIT_WIDTH-1:0] inst;
@@ -66,7 +66,7 @@ function automatic [`BIT_WIDTH-1:0] shift_mem_offset;
 
     `ifndef SYNTHESIS
         assert(decode_format(inst) == `FMT_MEMORY) else begin
-            $error("shift_mem_offset: inst is not in memory format: %h", inst);
+            $error("compute_mem_offset: inst is not in memory format: %h", inst);
         end
     `endif
 
@@ -78,8 +78,8 @@ function automatic [`BIT_WIDTH-1:0] shift_mem_offset;
         offset = shift_value_by_type(inst, Rm_value);
     end
 
-    if (up_down) shift_mem_offset = offset;
-    else shift_mem_offset = -offset;
+    if (up_down) compute_mem_offset = offset;
+    else compute_mem_offset = -offset;
 endfunction
 
 function automatic [`BIT_WIDTH:0] run_dataproc_operation;
@@ -209,10 +209,13 @@ module executor(
     );
 
     // Currnet Program Status Register (CPSR)
-    logic [`CPSR_SIZE-1:0] cpsr;
+    logic [`CPSR_SIZE-1:0] cpsr, next_cpsr;
 
     // Data memory declaration
     // Data memory is a byte-addressable memory space for memory instructions
+    // TODO: We may need to make data_memory word-aligned so it will be synthesized to BRAM
+    // If this is necessary, we should create a data_memory module that can handle
+    // byte-aligned read/writes with word-align read/writes
     reg [7:0] data_memory [0:`DATA_SIZE-1];
     initial begin
         $readmemh("cpu/lab2_data.hex", data_memory);
@@ -261,79 +264,103 @@ module executor(
     // operation to be done before we set ready == 1
     // So we might as well run all instructions and set values before next clock
     // cycle
+    // Data memory wires/registers
     logic [`DATA_SIZE_L2-1:0] data_read_addr, next_data_read_addr;
     logic [`DATA_SIZE_L2-1:0] data_write_addr;
     logic [`BIT_WIDTH-1:0] data_read_value, data_write_value;
     logic data_write_enable;
-    // Before current cycle
+    // Whether we have
+    logic condition_passes;
+    // Next cycle comb logic
     // TODO: Add all execution logic here
+    // Whether to store the dataproc instruction result in Rd
+    logic [`BIT_WIDTH-1:0] dataproc_operand2;
+    logic [`BIT_WIDTH-1:0] dataproc_result;
+    logic next_update_Rd;
+    logic [`BIT_WIDTH-1:0] next_Rd_value;
+    logic [`BIT_WIDTH-1:0] mem_offset;
+    logic next_update_pc;
+    logic [`BIT_WIDTH-1:0] next_new_pc;
     always_comb begin
-        if (next_ready) begin
+        dataproc_operand2 = `BIT_WIDTH'bX;
+        // We only set update_Rd = 1 if format is dataproc and operation demands it.
+        dataproc_result = `BIT_WIDTH'bX;
+        next_update_Rd = 1'b0;
+        next_Rd_value = `BIT_WIDTH'bX;
+        next_update_pc = 1'b0;
+        next_new_pc = `BIT_WIDTH'bX;
+        next_cpsr = cpsr;
+        mem_offset = `BIT_WIDTH'bX;
+        data_write_enable = 1'b0;
+
+        condition_passes = check_condition(
+            cpsr,
+            decode_condition(next_executor_inst)
+        );
+        if (next_ready && condition_passes) begin
             case (decode_format(next_executor_inst))
                 // TODO: Support halfword or byte-sized read/write?
                 `FMT_MEMORY: begin
-                    regfile_read_addr1 = decode_Rn(next_executor_inst);
-                    // don't care if instruction is LDR or STR
-                    regfile_read_addr2 = decode_Rm(next_executor_inst);
+                    mem_offset = compute_mem_offset(next_executor_inst, Rm_value);
+                    if (decode_mem_is_load(next_executor_inst)) begin
+                        // LDR
+                        next_data_read_addr = Rn_value + mem_offset;
+                        next_update_Rd = 1'b1;
+                        next_Rd_value = data_read_value;
                     end
-                    // data_memory address is just the base register address adjusted by the offset
+                    else begin
+                        // STR
+                        data_write_enable = 1'b1;
+                        data_write_addr = Rn_value + mem_offset;
+                        data_write_value = Rn_value;
+                    end
                 end
                 `FMT_DATA: begin
-                    regfile_read_addr1 = decode_Rn(next_executor_inst);
-                    regfile_read_addr2  = decode_Rm(next_executor_inst);
+                    dataproc_operand2 = compute_dataproc_operand2(next_executor_inst, Rm_value);
+                    {next_update_Rd, dataproc_result} = run_dataproc_operation(
+                        decode_dataproc_opcode(next_executor_inst),
+                        Rn_value,
+                        dataproc_operand2
+                    );
+                    next_Rd_value = dataproc_result;
+                    next_cpsr = compute_cpsr(
+                        dataproc_result,
+                        Rn_value,
+                        decode_dataproc_opcode(next_executor_inst)
+                    );
                 end
                 `FMT_BRANCH: begin
-                    // TODO
+                    // TODO: Which PC are we supposed to use here? pc+8? pc+12?
+                    next_update_pc = 1'b1;
+                    next_new_pc = pc + decode_branch_offset(next_executor_inst);
+                    if (decode_branch_is_link(next_executor_inst)) begin
+                        next_update_Rd = 1'b1;
+                        // TODO: Also not sure if this is the right PC here...
+                        next_Rd_value = pc;
+                    end
                 end
                 default: begin end
             endcase
         end
     end // comb
-    // Current cycle
-    // TODO: Move all logic except determination of output values (Rd_value, new_pc)
-    // to before current cycle
-    logic [`BIT_WIDTH:0] operand2;
-    logic [`BIT_WIDTH:0] offset;
-    logic data_read_enable;   // data read corresponds to when the cpu is reading and the memory is writing
-    always_comb begin
-        Rd_value = `BIT_WIDTH'bX;
-        update_Rd = 1'b0;
-        if (ready) begin
-            case (decode_format(executor_inst))
-                `FMT_BRANCH: begin
-                end
-                `FMT_DATA: begin
-                  Rn_value = regfile_read_value1;
-                  Rm_value = regfile_read_value2;
-                  operand2 = shift_dataproc_operand2(next_executor_inst, Rm_value);
-                  Rd_value = run_dataproc_operation(decode_dataproc_opcode(next_executor_inst), Rn_value, operand2);
-                end
-                `FMT_MEMORY: begin
-                    if (!decode_mem_is_load(next_executor_inst)) begin
-                        // STR
-                        data_read_enable = 1;
-                        Rn_value = regfile_read_value1;
-                        data_write_addr = decode_Rn(next_executor_inst) + shift_mem_offset;
-                        data_write_value = Rn_value;
-                        // Rd_value = data_read_value;
-                        // Rd is not updated for STR instruction
-                        update_Rd = 1'b0;
-                    end
-                    else begin
-                        // LDR
-                        data_read_enable = 0;
-                        Rm_value = regfile_read_value2;
-                        data_read_addr = decode_Rn(next_executor_inst) + shift_mem_offset(next_executor_inst, Rm_value);
-                        Rd_value = data_read_value;
-                        update_Rd = 1'b1;
-                    end
-                end
-                default: begin
-                    // TODO: Do we need this?
-                end
-            endcase
+    // Executor register updates
+    always_ff @(posedge clk) begin
+        if (nreset) begin
+            cpsr <= next_cpsr;
+            update_Rd <= next_update_Rd;
+            Rd_value <= next_Rd_value;
+            update_pc <= next_update_pc;
+            new_pc <= next_new_pc;
         end
-    end // comb
+        else begin
+            cpsr <= `CPSR_SIZE:'b0;
+            update_Rd <= `BIT_WIDTH'b0;
+            Rd_value <= `BIT_WIDTH'b0;
+            update_pc <= 1'b0;
+            new_pc <= `BIT_WIDTH'b0;
+        end
+    end
+    // Data memory read/write logic
     assign data_read_value[31:24] = data_memory[data_read_addr+3];
     assign data_read_value[23:16] = data_memory[data_read_addr+2];
     assign data_read_value[15:8] = data_memory[data_read_addr+1];
@@ -341,7 +368,7 @@ module executor(
     always_ff @(posedge clk) begin
         if (nreset) begin
             data_read_addr <= next_data_read_addr;
-            if (data_read_enable) begin
+            if (data_write_enable) begin
                 data_memory[data_write_addr+3] <= data_write_value[31:24];
                 data_memory[data_write_addr+2] <= data_write_value[23:16];
                 data_memory[data_write_addr+1] <= data_write_value[15:8];
@@ -351,8 +378,6 @@ module executor(
         else begin
             data_read_addr <= `DATA_SIZE_L2'b0;
             data_read_value <= `BIT_WIDTH'b0;
-            data_write_addr <= `DATA_SIZE_L2'b0;
         end
     end
-    // Determine new values for pc and Rd (execute instruction)
 endmodule

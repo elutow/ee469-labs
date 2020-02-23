@@ -35,6 +35,9 @@ module cpu(
     // TODO: Remove these after stages are finished and attached
     logic [`BIT_WIDTH-1:0] Rn_out, Rd_out;
 
+    // TODO: We should assert that only one stage's ready signal is on at a time
+    // for the multicycle only
+
     // Turn on LED when reset is not on
     assign led = nreset;
 

@@ -148,6 +148,31 @@ function automatic decode_mem_up_down;
     decode_mem_up_down = inst[23];
 endfunction
 
+function automatic decode_branch_is_link;
+	// 1 is branch with link, 0 is just branch
+    input [`BIT_WIDTH-1:0] inst;
+
+    `ifndef SYNTHESIS
+        assert(decode_format(inst) == `FMT_BRANCH) else begin
+            $error("decode_branch_is_link: inst is not in branch format: %h", inst);
+        end
+    `endif
+
+    decode_branch_is_link = inst[24];
+endfunction
+
+function automatic [23:0] decode_branch_offset;
+    input [`BIT_WIDTH-1:0] inst;
+
+    `ifndef SYNTHESIS
+        assert(decode_format(inst) == `FMT_BRANCH) else begin
+            $error("decode_branch_offset: inst is not in branch format: %h", inst);
+        end
+    `endif
+
+    decode_branch_offset = inst[23:0];
+endfunction
+
 module decoder(
 		input wire clk,
 		input wire nreset,
