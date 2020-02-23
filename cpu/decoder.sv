@@ -50,7 +50,7 @@ function automatic [`REG_COUNT_L2-1:0] decode_Rn;
 
     `ifndef SYNTHESIS
         logic [1:0] format;
-        assign format = decode_format(inst);
+        format = decode_format(inst);
         assert(format == `FMT_DATA || format == `FMT_MEMORY) else begin
             $error("decode_Rn: inst is not in data or memory formats: %h", inst);
         end
@@ -64,7 +64,7 @@ function automatic [`REG_COUNT_L2-1:0] decode_Rd;
 
     `ifndef SYNTHESIS
         logic [1:0] format;
-        assign format = decode_format(inst);
+        format = decode_format(inst);
         assert(format == `FMT_DATA || format == `FMT_MEMORY) else begin
             $error("decode_Rd: inst is not in data or memory formats: %h", inst);
         end
