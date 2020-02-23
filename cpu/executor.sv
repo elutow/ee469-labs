@@ -36,7 +36,7 @@ function automatic [`BIT_WIDTH-1:0] compute_dataproc_operand2;
 
     logic [4:0] rot_len;
     logic [`BIT_WIDTH-1:0] result;
-    logic [7:0] immediate_8;
+    logic [`BIT_WIDTH-1:0] immediate_8;
 
     `ifndef SYNTHESIS
         assert (decode_format(inst) == `FMT_DATA) else begin
@@ -47,7 +47,7 @@ function automatic [`BIT_WIDTH-1:0] compute_dataproc_operand2;
     if (decode_dataproc_operand2_is_immediate(inst)) begin
         rot_len = {inst[11:8], 1'b0}; // Multiply rot by 2
         immediate_8 = {24'b0, inst[7:0]};
-        result = (immediate_8 << (~rot_len + 1'b1) | (immediate_8 >> rot_len);
+        result = (immediate_8 << (~rot_len + 5'b1)) | (immediate_8 >> rot_len);
     end else begin
         result = shift_value_by_type(inst, Rm_value);
     end
@@ -353,7 +353,7 @@ module executor(
             new_pc <= next_new_pc;
         end
         else begin
-            cpsr <= `CPSR_SIZE:'b0;
+            cpsr <= `CPSR_SIZE'b0;
             update_Rd <= `BIT_WIDTH'b0;
             Rd_value <= `BIT_WIDTH'b0;
             update_pc <= 1'b0;
