@@ -278,7 +278,7 @@ module executor(
     logic [`BIT_WIDTH-1:0] dataproc_result;
     logic next_update_Rd;
     logic [`BIT_WIDTH-1:0] next_Rd_value;
-    logic [`BIT_WIDTH-1:0] mem_offset;
+    logic [`BIT_WIDTH-1:0] mem_new_Rn_value, mem_offset;
     logic next_update_pc;
     logic [`BIT_WIDTH-1:0] next_new_pc;
     always_comb begin
@@ -290,6 +290,7 @@ module executor(
         next_update_pc = 1'b0;
         next_new_pc = `BIT_WIDTH'bX;
         next_cpsr = cpsr;
+        mem_new_Rn_value = `BIT_WIDTH'bX;
         mem_offset = `BIT_WIDTH'bX;
         data_write_enable = 1'b0;
 
@@ -301,22 +302,24 @@ module executor(
             case (decode_format(next_executor_inst))
                 `FMT_MEMORY: begin
                     mem_offset = compute_mem_offset(next_executor_inst, Rm_value);
+                    mem_new_Rn_value = Rn_value + mem_offset;
+
                     `ifndef SYNTHESIS
-                        assert(Rn_value + mem_offset < `INST_COUNT) else begin
+                        assert(mem_new_Rn_value < `DATA_SIZE) else begin
                             $error("Invalid data memory address for Rn %d and mem_offset %d for inst %h",
                                    Rn_value, mem_offset, next_executor_inst);
                         end
                     `endif
                     if (decode_mem_is_load(next_executor_inst)) begin
                         // LDR
-                        next_data_read_addr = `DATA_SIZE_L2'(Rn_value + mem_offset);
+                        next_data_read_addr = mem_new_Rn_value[`DATA_SIZE_L2-1:0];
                         next_update_Rd = 1'b1;
                         next_Rd_value = data_read_value;
                     end
                     else begin
                         // STR
                         data_write_enable = 1'b1;
-                        data_write_addr = `DATA_SIZE_L2'(Rn_value + mem_offset);
+                        data_write_addr = mem_new_Rn_value[`DATA_SIZE_L2-1:0];
                         data_write_value = Rn_value;
                     end
                 end

@@ -93,8 +93,6 @@ module cpu(
     );
 
     logic regfilewriter_ready;
-    logic [`BIT_WIDTH-1:0] regfilewriter_new_pc;
-    logic regfilewriter_update_pc;
     regfilewriter the_regfilewriter(
         .clk(clk), .nreset(nreset), .enable(executor_ready),
         .ready(regfilewriter_ready), .pc(pc), .executor_inst(executor_inst),
@@ -104,8 +102,8 @@ module cpu(
         .regfile_write_enable1(regfile_write_enable1),
         .regfile_write_addr1(regfile_write_addr1),
         .regfile_write_value1(regfile_write_value1),
-        .regfile_new_pc(regfilewriter_new_pc),
-        .regfile_update_pc(regfilewriter_update_pc)
+        .regfile_new_pc(regfile_new_pc),
+        .regfile_update_pc(regfile_update_pc)
     );
 
     // CPU FSM
