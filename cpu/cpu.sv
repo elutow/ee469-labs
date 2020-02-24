@@ -161,6 +161,7 @@ module cpu(
         debug_port_vector[12*8:16*8-1] = regfile_read_value2;
         debug_port_vector[16*8:17*8-1] = {4'b0, regfile_write_addr1};
         debug_port_vector[17*8:21*8-1] = regfile_write_value1;
-        debug_port_vector[21*8:25*8-1] = fetcher_inst;
+        debug_port_vector[21*8:22*8-1] = {7'b0, regfile_write_enable1};
+        debug_port_vector[22*8:26*8-1] = fetcher_inst;
     end   // comb
 endmodule

@@ -97,7 +97,8 @@ def parse_cycle_output(cycle_count, cycle_output):
     print(f'r{regfile_read_addr1}->{regfile_read_value1:#0{10}x}', end=' ')
     regfile_read_addr2, regfile_read_value2 = _io_unpack('>BI', buf_io)
     print(f'r{regfile_read_addr2}->{regfile_read_value2:#0{10}x}', end=' ')
-    regfile_write_addr1, regfile_write_value1 = _io_unpack('>BI', buf_io)
-    print(f'r{regfile_write_addr1}<-{regfile_write_value1:#0{10}x}', end='\t')
+    regfile_write_addr1, regfile_write_value1, regfile_write_enable1 = _io_unpack('>BIB', buf_io)
+    regfile_write1_str = '<-' if regfile_write_enable1 else '//'
+    print(f'r{regfile_write_addr1}{regfile_write1_str}{regfile_write_value1:#0{10}x}', end='\t')
     fetcher_inst, = _io_unpack('>I', buf_io)
     print(_decode_instruction(fetcher_inst))
