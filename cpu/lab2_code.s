@@ -31,4 +31,5 @@ start:
 	ldr r4, [r8, #2]	@ test immediate offset
 	ldr r4, [r8, +r9, LSL #2]	@ test register shift offset
 
-	b start
+	bl start
+	mov pc, lr

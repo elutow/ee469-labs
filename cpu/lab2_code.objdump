@@ -26,4 +26,5 @@ Disassembly of section .data:
   48:	e5984000 	ldr	r4, [r8]
   4c:	e5984002 	ldr	r4, [r8, #2]
   50:	e7984109 	ldr	r4, [r8, r9, lsl #2]
-  54:	eaffffe9 	b	0x0
+  54:	ebffffe9 	bl	0x0
+  58:	e1a0f00e 	mov	pc, lr

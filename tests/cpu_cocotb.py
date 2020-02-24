@@ -31,7 +31,7 @@ async def test_cpu(cocotb_dut):
     dut.nreset <= 1
     dut._log.debug('Reset complete')
 
-    for cycle_count in range(4*22+4):
+    for cycle_count in range(4*23+4):
         dut._log.debug(f'Running CPU cycle {cycle_count}')
         debug_port_bytes = dut.cpu_debug_port_vector.value.integer.to_bytes(DEBUG_BYTES-1, 'big')
         parse_cycle_output(cycle_count, debug_port_bytes)
