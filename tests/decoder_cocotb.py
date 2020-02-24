@@ -10,27 +10,21 @@ from cocotb.regression import TestFactory
 from cocotb.scoreboard import Scoreboard
 from cocotb.result import TestFailure, TestSuccess
 
-from _tests_common import DUTWrapper
-
-# Module to test
-_MODULE = "decoder"
-
 @cocotb.test()
-async def run_test(cocotb_dut):
-    """Setup testbench and run a test."""
-    dut = DUTWrapper(cocotb_dut, _MODULE)
+async def test_decoder(dut):
+    """Test decoder"""
 
     # NOTE: This will cause the decoder Verilog to throw an exception,
     # which unfortunately crashes verilator and cocotb right now
     #dut.decoder_inst.setimmediatevalue(0xFFFFFFFF)
 
     # Read instruction hex
-    with open('cpu/lab2_code.hex') as lab1_code:
-        for inst_hexstr in lab1_code.read().splitlines():
+    with open('cpu/lab2_code.hex') as code_hex:
+        for inst_hexstr in code_hex.read().splitlines():
             dut._log.debug('Testing decoder instruction:', inst_hexstr)
             instr = int(inst_hexstr, 16)
-            dut.decoder_inst.setimmediatevalue(instr)
-            assert dut.decoder_inst.value.integer == instr
+            dut.decoder_decoder_inst.setimmediatevalue(instr)
+            assert dut.decoder_decoder_inst.value.integer == instr
             # Ensure values are set properly (and enable viewing in GTKwave)
             await Timer(1, 'us')
 

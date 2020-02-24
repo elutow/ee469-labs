@@ -33,3 +33,4 @@ start:
 
 	bl start
 	mov pc, lr
+	add lr, pc, r4

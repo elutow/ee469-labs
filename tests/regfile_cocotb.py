@@ -10,32 +10,49 @@ from cocotb.regression import TestFactory
 from cocotb.scoreboard import Scoreboard
 from cocotb.result import TestFailure, TestSuccess
 
-from _tests_common import DUTWrapper, init_posedge_clk
+from _tests_common import init_posedge_clk
 
-# Module to test
-_MODULE = "regfile"
+def _read_regfile_init(init_hex_path):
+    with open(init_hex_path) as regfile_init_hex:
+        hex_entries = regfile_init_hex.read().splitlines()
+    return tuple(int(line, 16) for line in hex_entries if line)
 
 @cocotb.test()
-async def run_test(cocotb_dut):
-    """Setup testbench and run a test."""
-    dut = DUTWrapper(cocotb_dut, _MODULE)
+async def test_regfile(dut):
+    """Test regfile"""
 
-    # NOTE: This will cause the decoder Verilog to throw an exception,
-    # which unfortunately crashes verilator and cocotb right now
-    #dut.decoder_inst.setimmediatevalue(0xFFFFFFFF)
+    clkedge = init_posedge_clk(dut.regfile_clk)
+    regfile_init = _read_regfile_init('cpu/regfile_init.hex')
 
-    # TODO: Verify single-cycle reads
-    # TODO: Verify single-cycle writes
-    # Read instruction hex
-    with open('cpu/lab2_code.hex') as lab1_code:
-        for inst_hexstr in lab1_code.read().splitlines():
-            dut._log.debug('Testing decoder instruction:', inst_hexstr)
-            instr = int(inst_hexstr, 16)
-            dut.decoder_inst.setimmediatevalue(instr)
-            assert dut.decoder_inst.value.integer == instr
-            # Ensure values are set properly (and enable viewing in GTKwave)
-            await Timer(1, 'us')
+    # Reset
+    dut.regfile_nreset <= 0
+    await clkedge
+    dut.regfile_nreset <= 1
+    await clkedge
+    dut._log.debug('Reset complete')
 
+    # Test reads
+    # NOTE: All regfile reads are clocked, so we set immediates here and then
+    # wait for clkedge
+    dut.regfile_read_inst.setimmediatevalue(int('e1540005', 16)) # cmp r4, r5
+    dut.regfile_read_addr1.setimmediatevalue(4) # r4
+    dut.regfile_read_addr2.setimmediatevalue(5) # r5
+
+    await clkedge
+
+    assert dut.regfile_read_value1.value.integer == regfile_init[4]
+    assert dut.regfile_read_value2.value.integer == regfile_init[5]
+    # Test new instruction right away
+    dut.regfile_read_inst.setimmediatevalue(int('e08fe004', 16)) # add lr, pc, r4
+    dut.regfile_read_addr1.setimmediatevalue(15) # pc
+    dut.regfile_read_addr2.setimmediatevalue(4) # r4
+
+    await clkedge
+
+    # Since we didn't increment PC, and operand2 is not an immediate,
+    # we should get pc + 12 = 0 + 12 = 12
+    assert dut.regfile_read_value1 == 12
+    assert dut.regfile_read_value2 == regfile_init[4]
 
 # Register the test.
 #factory = TestFactory(run_test)

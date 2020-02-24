@@ -8,27 +8,24 @@ from cocotb.regression import TestFactory
 from cocotb.scoreboard import Scoreboard
 from cocotb.result import TestFailure, TestSuccess
 
-from _tests_common import DUTWrapper, init_posedge_clk
+from _tests_common import init_posedge_clk
 
 from cpu_output import parse_cycle_output
-
-# Module to test
-_MODULE = "cpu"
 
 # From cpu/constants.svh
 DEBUG_BYTES = 32
 
 @cocotb.test()
-async def test_cpu(cocotb_dut):
-    """Setup CPUtestbench and run a test."""
-    dut = DUTWrapper(cocotb_dut, _MODULE)
+async def test_cpu(dut):
+    """Run cpu normally and process debug port outputs"""
 
-    clkedge = init_posedge_clk(dut.clk)
+    clkedge = init_posedge_clk(dut.cpu_clk)
 
     # Reset CPU
-    dut.nreset <= 0
+    dut.cpu_nreset <= 0
     await clkedge
-    dut.nreset <= 1
+    dut.cpu_nreset <= 1
+    await clkedge
     dut._log.debug('Reset complete')
 
     for cycle_count in range(4*23+4):

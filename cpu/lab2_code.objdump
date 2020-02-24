@@ -28,3 +28,4 @@ Disassembly of section .data:
   50:	e7984109 	ldr	r4, [r8, r9, lsl #2]
   54:	ebffffe9 	bl	0x0
   58:	e1a0f00e 	mov	pc, lr
+  5c:	e08fe004 	add	lr, pc, r4
