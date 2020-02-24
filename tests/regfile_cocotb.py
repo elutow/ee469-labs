@@ -1,14 +1,6 @@
 import random
 
 import cocotb
-from cocotb.clock import Clock
-from cocotb.triggers import Timer, RisingEdge, ReadOnly
-from cocotb.monitors import Monitor
-from cocotb.drivers import BitDriver
-from cocotb.binary import BinaryValue
-from cocotb.regression import TestFactory
-from cocotb.scoreboard import Scoreboard
-from cocotb.result import TestFailure, TestSuccess
 
 from _tests_common import init_posedge_clk
 
@@ -53,7 +45,3 @@ async def test_regfile(dut):
     # we should get pc + 12 = 0 + 12 = 12
     assert dut.regfile_read_value1 == 12
     assert dut.regfile_read_value2 == regfile_init[4]
-
-# Register the test.
-#factory = TestFactory(run_test)
-#factory.generate_tests()

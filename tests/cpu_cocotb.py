@@ -1,12 +1,4 @@
 import cocotb
-from cocotb.clock import Clock
-from cocotb.triggers import Timer, RisingEdge, ReadOnly
-from cocotb.monitors import Monitor
-from cocotb.drivers import BitDriver
-from cocotb.binary import BinaryValue
-from cocotb.regression import TestFactory
-from cocotb.scoreboard import Scoreboard
-from cocotb.result import TestFailure, TestSuccess
 
 from _tests_common import init_posedge_clk
 
@@ -33,8 +25,3 @@ async def test_cpu(dut):
         debug_port_bytes = dut.cpu_debug_port_vector.value.integer.to_bytes(DEBUG_BYTES-1, 'big')
         parse_cycle_output(cycle_count, debug_port_bytes)
         await clkedge
-
-
-# Register the test.
-#factory = TestFactory(run_test)
-#factory.generate_tests()
