@@ -21,6 +21,10 @@ VERILOG_SOURCES ?= $(CURDIR)/*.sv
 TOPLEVEL ?= foo
 # Python modules containing test functions
 MODULE ?= foo_cocotb
+# Extra Verilator options for testing code
+EXTRA_ARGS += --x-assign unique --x-initial unique --assert
+# NOTE: The following may iincrease tracing file size dramatically
+#EXTRA_ARGS += --trace-coverage
 
 include $(shell cocotb-config --makefiles)/Makefile.inc
 include $(shell cocotb-config --makefiles)/Makefile.sim

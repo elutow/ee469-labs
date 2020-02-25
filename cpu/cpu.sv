@@ -111,8 +111,11 @@ module cpu(
         if (decoder_ready) ready_asserted_count = ready_asserted_count + 3'b1;
         if (executor_ready) ready_asserted_count = ready_asserted_count + 3'b1;
         if (regfilewriter_ready) ready_asserted_count = ready_asserted_count + 3'b1;
-        assert(ready_asserted_count == 3'b1) else begin
-            $error("More than one ready signal asserted!");
+        assert(ready_asserted_count <= 3'b1) else begin
+            $error(
+                "More than one ready signal asserted!: %b",
+                {fetcher_ready, decoder_ready, executor_ready, regfilewriter_ready}
+            );
         end
     end
     `endif // SYNTHESIS
