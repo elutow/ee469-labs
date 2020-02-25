@@ -55,11 +55,12 @@ module regfilewriter(
         regfile_new_pc = `BIT_WIDTH'bX;
         if (next_ready && update_Rd) begin
             regfile_write_enable1 = 1'b1;
-            if (decode_format(executor_inst) == `FMT_BRANCH
-                && decode_branch_is_link(executor_inst)) begin
+            if (decode_format(executor_inst) == `FMT_BRANCH) begin
+                if (decode_branch_is_link(executor_inst)) begin
                     // NOTE: In executor, we set the write value to the new
                     // value for the link register
                     regfile_write_addr1 = `REG_LR_INDEX;
+                end
             end
             else begin
                 regfile_write_addr1 = decode_Rd(executor_inst);
@@ -80,6 +81,11 @@ module regfilewriter(
                 // NOTE: MULTICYCLE ONLY
                 // Update PC to next instruction otherwise
                 regfile_new_pc = pc + `BIT_WIDTH'd4;
+            end
+            else begin
+                // Write address is already writing to PC, disable PC-specific
+                // write enable
+                regfile_update_pc = 1'b0;
             end
         end
     end // comb

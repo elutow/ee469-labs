@@ -29,8 +29,17 @@ start:
 	str r5, [r8]		@ store value of r5 into [r8]
 	ldr r4, [r8]		@ check that [r8] held the value of r5 from previous instruction
 	ldr r4, [r8, #2]	@ test immediate offset
-	ldr r4, [r8, +r9, LSL #2]	@ test register shift offset
+	ldr r4, [r8, +r9, LSR #5]	@ test register shift offset
 
-	bl start
+	nop
+
+	@ Test conditional execution
+	cmp r4, r5
+	movne lr, #0
+	moveq pc, lr
+	blne start
+
+	@ These instructions should be ignored
 	mov pc, lr
+	movs pc, lr
 	add lr, pc, r4

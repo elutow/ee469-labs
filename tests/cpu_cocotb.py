@@ -6,6 +6,8 @@ from cpu_output import parse_cycle_output
 
 # From cpu/constants.svh
 DEBUG_BYTES = 32
+# Number of instructions to run for in test code
+NUM_INSTRUCTIONS = 26
 
 @cocotb.test()
 async def test_cpu(dut):
@@ -20,7 +22,7 @@ async def test_cpu(dut):
     await clkedge
     dut._log.debug('Reset complete')
 
-    for cycle_count in range(4*23+4):
+    for cycle_count in range(4*NUM_INSTRUCTIONS+4):
         dut._log.debug(f'Running CPU cycle {cycle_count}')
         debug_port_bytes = dut.cpu_debug_port_vector.value.integer.to_bytes(DEBUG_BYTES-1, 'big')
         parse_cycle_output(cycle_count, debug_port_bytes)

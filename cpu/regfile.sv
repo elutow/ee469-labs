@@ -34,7 +34,7 @@ module regfile(
 
     // Synchronous values
     logic [`BIT_WIDTH-1:0] next_pc;
-    logic [`REG_COUNT_L2-1:0] prev_read_addr1, prev_read_addr2, prev_write_addr1;
+    logic [`REG_COUNT_L2-1:0] prev_read_addr1, prev_read_addr2;
     logic [`BIT_WIDTH-1:0] prev_read_inst;
 
     // Register file and outputs
@@ -77,16 +77,27 @@ module regfile(
         if (nreset) begin
             pc <= next_pc;
             if (write_enable1 && write_addr1 != `REG_PC_INDEX) begin
-                register_file[prev_write_addr1] <= write_value1;
+                register_file[write_addr1] <= write_value1;
             end
-            prev_write_addr1 <= write_addr1;
+            `ifndef SYNTHESIS
+                assert(32'(read_addr1) < `REG_COUNT) else begin
+                    $error("Invalid read_addr1 %h with inst %h",
+                           read_addr1, read_inst);
+                end
+                assert(32'(read_addr2) < `REG_COUNT) else begin
+                    $error("Invalid read_addr2 %h with inst %h",
+                           read_addr2, read_inst);
+                end
+                assert(32'(write_addr1) < `REG_COUNT) else begin
+                    $error("Invalid write_addr1 %h", write_addr1);
+                end
+            `endif
             prev_read_addr1 <= read_addr1;
             prev_read_addr2 <= read_addr2;
             prev_read_inst <= read_inst;
         end
         else begin
             pc <= `BIT_WIDTH'b0;
-            prev_write_addr1 <= `REG_COUNT_L2'b0;
             prev_read_addr1 <= `REG_COUNT_L2'b0;
             prev_read_addr2 <= `REG_COUNT_L2'b0;
             prev_read_inst <= `BIT_WIDTH'b0;

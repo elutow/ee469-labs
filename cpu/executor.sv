@@ -304,8 +304,11 @@ module executor(
 
                     `ifndef SYNTHESIS
                         assert(mem_new_Rn_value < `DATA_SIZE) else begin
-                            $error("Invalid data memory address for Rn %d and mem_offset %d for inst %h",
-                                   Rn_value, mem_offset, next_executor_inst);
+                            $error(
+                                "Invalid data memory address for Rn(%d)=%h and mem_offset=%h for inst %h",
+                                decode_Rn(next_executor_inst), Rn_value,
+                                mem_offset, next_executor_inst
+                            );
                         end
                     `endif
                     if (decode_mem_is_load(next_executor_inst)) begin
@@ -329,11 +332,13 @@ module executor(
                         dataproc_operand2
                     );
                     next_Rd_value = dataproc_result;
-                    next_cpsr = compute_cpsr(
-                        dataproc_result,
-                        Rn_value,
-                        decode_dataproc_opcode(next_executor_inst)
-                    );
+                    if (decode_dataproc_update_cpsr(next_executor_inst)) begin
+                        next_cpsr = compute_cpsr(
+                            dataproc_result,
+                            Rn_value,
+                            decode_dataproc_opcode(next_executor_inst)
+                        );
+                    end
                 end
                 `FMT_BRANCH: begin
                     next_update_pc = 1'b1;

@@ -45,6 +45,18 @@ function automatic [3:0] decode_dataproc_opcode;
     decode_dataproc_opcode = inst[24:21];
 endfunction
 
+function automatic decode_dataproc_update_cpsr;
+    input [`BIT_WIDTH-1:0] inst;
+
+    `ifndef SYNTHESIS
+        assert(decode_format(inst) == `FMT_DATA) else begin
+            $error("decode_dataproc_update_cpsr: inst is not in data format: %h", inst);
+        end
+    `endif
+
+    decode_dataproc_update_cpsr = inst[20];
+endfunction
+
 function automatic [`REG_COUNT_L2-1:0] decode_Rn;
     input [`BIT_WIDTH-1:0] inst;
 
