@@ -275,7 +275,7 @@ module executor(
     logic [`BIT_WIDTH-1:0] dataproc_operand2;
     logic [`BIT_WIDTH-1:0] dataproc_result;
     logic next_update_Rd;
-    logic [`BIT_WIDTH-1:0] next_Rd_value;
+    logic [`BIT_WIDTH-1:0] databranch_Rd_value, next_databranch_Rd_value;
     logic [`BIT_WIDTH-1:0] mem_new_Rn_value, mem_offset;
     logic next_update_pc;
     logic [`BIT_WIDTH-1:0] next_new_pc;
@@ -284,7 +284,7 @@ module executor(
         // We only set update_Rd = 1 if format is dataproc and operation demands it.
         dataproc_result = `BIT_WIDTH'bX;
         next_update_Rd = 1'b0;
-        next_Rd_value = `BIT_WIDTH'bX;
+        next_databranch_Rd_value = `BIT_WIDTH'bX;
         next_update_pc = 1'b0;
         next_new_pc = `BIT_WIDTH'bX;
         next_cpsr = cpsr;
@@ -315,10 +315,12 @@ module executor(
                         // LDR
                         next_data_read_addr = mem_new_Rn_value[`DATA_SIZE_L2-1:0];
                         next_update_Rd = 1'b1;
-                        next_Rd_value = data_read_value;
+                        // NOTE: We will assign data memory output in comb block
+                        // below
                     end
                     else begin
                         // STR
+                        // TODO: We need to read the value of Rd, which means we need another port in regfile and here
                         data_write_enable = 1'b1;
                         data_write_addr = mem_new_Rn_value[`DATA_SIZE_L2-1:0];
                         data_write_value = Rn_value;
@@ -331,7 +333,7 @@ module executor(
                         Rn_value,
                         dataproc_operand2
                     );
-                    next_Rd_value = dataproc_result;
+                    next_databranch_Rd_value = dataproc_result;
                     if (decode_dataproc_update_cpsr(next_executor_inst)) begin
                         next_cpsr = compute_cpsr(
                             dataproc_result,
@@ -347,10 +349,23 @@ module executor(
                         // NOTE: In regfilewriter, we will set the address to
                         // write to the link register
                         next_update_Rd = 1'b1;
-                        next_Rd_value = pc + `BIT_WIDTH'd4;
+                        next_databranch_Rd_value = pc + `BIT_WIDTH'd4;
                     end
                 end
                 default: begin end
+            endcase
+        end
+    end // comb
+    // Combinational logic to determine output Rd value
+    // We need to determine Rd's value here because data memory takes a clock
+    // cycle to become available
+    always_comb begin
+        Rd_value = `BIT_WIDTH'bX;
+        // NOTE: update_Rd can be 1 only if the instruction passes conditions
+        if (ready && update_Rd) begin
+            case (decode_format(next_executor_inst))
+                `FMT_MEMORY: Rd_value = data_read_value;
+                default: Rd_value = databranch_Rd_value; // DATA and BRANCH formats
             endcase
         end
     end // comb
@@ -359,14 +374,14 @@ module executor(
         if (nreset) begin
             cpsr <= next_cpsr;
             update_Rd <= next_update_Rd;
-            Rd_value <= next_Rd_value;
+            databranch_Rd_value <= next_databranch_Rd_value;
             update_pc <= next_update_pc;
             new_pc <= next_new_pc;
         end
         else begin
             cpsr <= `CPSR_SIZE'b0;
             update_Rd <= 1'b0;
-            Rd_value <= `BIT_WIDTH'b0;
+            databranch_Rd_value <= `BIT_WIDTH'b0;
             update_pc <= 1'b0;
             new_pc <= `BIT_WIDTH'b0;
         end
