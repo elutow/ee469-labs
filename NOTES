@@ -1,6 +1,15 @@
 TODO:
 
-- (Pipelining issue) Register values for immediate register read after register write
+- implement load pre-increment, don't write back
+Pipelining: Implement bubbles/no-ops and bypasses
+- Register values for immediate register read after register write
+- take values from beginning of stages back into beginning of previous stages
+    e.g. WB -> Exe, Mem -> Ex
+- bubbles for updating CPSR and delaying next instruction
+- bubbles for branching
+    - two options for adding bubbles:
+        1. stall decode, fetch
+        2. continue to fetch, but if branch is taken, then get rid of decode and fetch instructions. This is the faster solution
 
 From Slack channel (Han Yang Du):
 
