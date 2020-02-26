@@ -49,8 +49,6 @@ apio sim
 
 ## Development Notes
 
-To get verbose place & route output during builds, use the following:
+To get verbose compilation & synthesis output during builds (and statistics of FPGA resources used), add the `--verbose-yosys` flag to `apio build`.
 
-```sh
-apio build --verbose-nextpnr
-```
+To get verbose place & route output during builds, add the `--verbose-nextpnr` flag to `apio build`.
