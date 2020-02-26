@@ -168,9 +168,11 @@ module cpu(
         debug_port_vector[12*8:16*8-1] = regfile_read_value2;
         debug_port_vector[16*8:17*8-1] = {4'b0, regfile_write_addr1};
         debug_port_vector[17*8:21*8-1] = regfile_write_value1;
-        debug_port_vector[21*8:22*8-1] = {7'b0, regfile_write_enable1};
+        debug_port_vector[21*8:22*8-1] = {
+            1'b0, regfile_update_pc, regfile_write_enable1,
+            executor_condition_passes, executor_cpsr
+        };
         debug_port_vector[22*8:26*8-1] = fetcher_inst;
-        debug_port_vector[26*8:27*8-1] = {4'b0, executor_cpsr};
-        debug_port_vector[27*8:28*8-1] = {7'b0, executor_condition_passes};
+        debug_port_vector[26*8:30*8-1] = regfile_new_pc;
     end   // comb
 endmodule

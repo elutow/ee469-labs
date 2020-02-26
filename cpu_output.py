@@ -101,6 +101,20 @@ def _io_unpack(struct_format, buf):
     data = buf.read(size)
     return struct.unpack(struct_format, data)
 
+def _io_read_by_bitcount(struct_format, buf_io, *args):
+    """
+    Read multiple values from a single value and returns a tuple of those values
+
+    args specifies a sequence of bit counts
+    """
+    assert args
+    orig_value, = _io_unpack(struct_format, buf_io)
+    results = list()
+    for bitcount in reversed(args):
+        results.append(orig_value % (1 << bitcount))
+        orig_value >>= bitcount
+    return tuple(reversed(results))
+
 def parse_cycle_output(cycle_count, cycle_output):
     """Parse one cycle output"""
     if int.from_bytes(cycle_output, 'little') == 0:
@@ -110,17 +124,23 @@ def parse_cycle_output(cycle_count, cycle_output):
     buf_io = io.BytesIO(cycle_output)
     # Decode instruction from USB debug port
     pc, ready_flags = _io_unpack('>IB', buf_io)
-    print(f'pc={pc} {_parse_ready_flags(ready_flags)}', end='\t')
     regfile_read_addr1, regfile_read_value1 = _io_unpack('>BI', buf_io)
-    print(f'r{regfile_read_addr1}->{regfile_read_value1:#0{10}x}', end=' ')
     regfile_read_addr2, regfile_read_value2 = _io_unpack('>BI', buf_io)
-    print(f'r{regfile_read_addr2}->{regfile_read_value2:#0{10}x}', end=' ')
-    regfile_write_addr1, regfile_write_value1, regfile_write_enable1 = _io_unpack('>BIB', buf_io)
-    regfile_write1_str = '<-' if regfile_write_enable1 else '//'
-    print(f'r{regfile_write_addr1}{regfile_write1_str}{regfile_write_value1:#0{10}x}', end='\t')
+    regfile_write_addr1, regfile_write_value1 = _io_unpack('>BI', buf_io)
+    (
+        regfile_update_pc, regfile_write_enable1,
+        executor_condition_passes, executor_cpsr
+    ) = _io_read_by_bitcount('>B', buf_io, 1, 1, 1, 4)
     fetcher_inst, = _io_unpack('>I', buf_io)
-    executor_cpsr, = _io_unpack('>B', buf_io)
-    executor_condition_passes, = _io_unpack('>B', buf_io)
+    regfile_new_pc, = _io_unpack('>I', buf_io)
+
+    print(f'pc={pc} {_parse_ready_flags(ready_flags)}', end='\t')
+    print(f'r{regfile_read_addr1}->{regfile_read_value1:#0{10}x}', end=' ')
+    print(f'r{regfile_read_addr2}->{regfile_read_value2:#0{10}x}', end=' ')
+    regfile_write1_str = '<-' if regfile_write_enable1 else '//'
+    print(f'r{regfile_write_addr1}{regfile_write1_str}{regfile_write_value1:#0{10}x}', end=' ')
+    update_pc_str = '<-' if regfile_update_pc else '//'
+    print(f'pc{update_pc_str}{regfile_new_pc}', end='\t')
     condition_passes_str = '' if executor_condition_passes else '->!exe'
     print(f'({_parse_cpsr(executor_cpsr)}){condition_passes_str}', end='\t')
     print(_decode_instruction(fetcher_inst))
