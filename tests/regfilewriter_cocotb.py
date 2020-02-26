@@ -97,7 +97,6 @@ async def test_regfilewriter_nonbranch(dut):
     await Timer(1, 'us')
     assert dut.regfilewriter_ready.value.integer
     assert dut.regfilewriter_regfile_update_pc.value.integer
-    print('VALUE:', dut.regfilewriter_regfile_new_pc.value.integer)
     assert dut.regfilewriter_regfile_new_pc.value.integer == current_pc + 4
     assert dut.regfilewriter_regfile_write_enable1.value.integer
     assert dut.regfilewriter_regfile_write_addr1.value.integer == 4 # r4
@@ -127,5 +126,33 @@ async def test_regfilewriter_nonbranch(dut):
     assert dut.regfilewriter_regfile_write_enable1.value.integer
     assert dut.regfilewriter_regfile_write_addr1.value.integer == 15 # pc
     assert dut.regfilewriter_regfile_write_value1.value.integer == Rd_value
+
+    _cleanup_regfilewriter(dut)
+
+@cocotb.test()
+async def test_regfilewriter_pc_nonexe(dut):
+    """Test regfilewriter pc updates on non-executing instruction"""
+
+    # NOTE: This test does not really help because Verilator simply sets
+    # 1'bX logic to zeroes
+
+    clkedge, current_pc = await _setup_regfilewriter(dut)
+
+    # Test write addr overriding PC logic
+    dut.regfilewriter_executor_inst <= int('01a0f00e', 16) # moveq	pc, lr
+    dut.regfilewriter_update_pc <= 0
+    Rd_value = 24 # pc, but it should not be written
+    assert current_pc != Rd_value
+    # update_Rd = 0 when it is not executed
+    dut.regfilewriter_update_Rd <= 0
+    dut.regfilewriter_Rd_value <= Rd_value
+    await clkedge
+    # We need to wait a little since the values just became available
+    # at the last clkedge
+    await Timer(1, 'us')
+    assert dut.regfilewriter_ready.value.integer
+    assert dut.regfilewriter_regfile_update_pc.value.integer
+    assert dut.regfilewriter_regfile_new_pc.value.integer == current_pc + 4
+    assert not dut.regfilewriter_regfile_write_enable1.value.integer
 
     _cleanup_regfilewriter(dut)

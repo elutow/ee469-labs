@@ -73,24 +73,21 @@ module regfilewriter(
         end
         // Update PC
         if (next_ready) begin
-            regfile_update_pc = 1'b1;
+            regfile_update_pc = 1'b0;
             `ifndef SYNTHESIS
-                assert(!((regfile_write_addr1 == `REG_PC_INDEX) && update_pc)) else begin
+                assert(!(regfile_write_enable1 && (regfile_write_addr1 == `REG_PC_INDEX) && update_pc)) else begin
                     $error("Cannot set PC directly with write to PC simultaneously");
                 end
             `endif
             if (update_pc) begin
+                regfile_update_pc = 1'b1;
                 regfile_new_pc = new_pc;
             end
-            else if (regfile_write_addr1 != `REG_PC_INDEX) begin
+            else if (!(regfile_write_enable1 && (regfile_write_addr1 == `REG_PC_INDEX))) begin
                 // NOTE: MULTICYCLE ONLY
                 // Update PC to next instruction otherwise
+                regfile_update_pc = 1'b1;
                 regfile_new_pc = pc + `BIT_WIDTH'd4;
-            end
-            else begin
-                // Write address is already writing to PC, disable PC-specific
-                // write enable
-                regfile_update_pc = 1'b0;
             end
         end
     end // comb
