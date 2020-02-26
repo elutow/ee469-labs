@@ -18,8 +18,8 @@
 `define INST_COUNT 64
 // log base-2 of INST_COUNT
 `define INST_COUNT_L2 6
-// Size of data memory in bytes
-`define DATA_SIZE 64
+// Size of data memory in words
+`define DATA_SIZE 16
 `define DATA_SIZE_L2 6
 // DEBUG_BYTES Must be power of 2
 `define DEBUG_BYTES 32
@@ -70,5 +70,15 @@
 `define CPSR_ZERO_IDX 2
 `define CPSR_CARRY_IDX 1
 `define CPSR_OVERFLOW_IDX 0
+
+// For data_memory module
+`define BYTE_3_UPPER 31
+`define BYTE_3_LOWER 24
+`define BYTE_2_UPPER 23
+`define BYTE_2_LOWER 16
+`define BYTE_1_UPPER 15
+`define BYTE_1_LOWER 8
+`define BYTE_0_UPPER 7
+`define BYTE_0_LOWER 0
 
 `endif // _CPU_CONSTANTS_SVH_

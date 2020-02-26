@@ -3,25 +3,12 @@ import random
 import cocotb
 from cocotb.triggers import Timer
 
-from _tests_common import init_posedge_clk, read_regfile_init
-
-def _read_init_data_memory():
-    with open('cpu/lab2_data.hex') as data_hex:
-        data_str = data_hex.read().splitlines()
-    data_int = [int(x, 16) for x in data_str if x]
-    return data_int
-
-def _read_word(addr, data_memory):
-    # Assumptions:
-    # - data_memory is an array of bytes (TODO: Make these words in the future)
-    # - Entries are in ascending order by address
-    # - CPU is operating in big-endian mode
-    values = data_memory[addr:addr+4]
-    result = 0
-    for item in values:
-        assert abs(item) < 256 # Necessary condition for data memory to be byte values
-        result = (result << 8) + item
-    return result
+from _tests_common import (
+    init_posedge_clk,
+    read_regfile_init,
+    read_data_memory_init,
+    read_data_memory_word
+)
 
 @cocotb.test()
 async def test_executor_memory(dut):
@@ -29,7 +16,7 @@ async def test_executor_memory(dut):
 
     clkedge = init_posedge_clk(dut.executor_clk)
 
-    init_data_memory = _read_init_data_memory()
+    data_memory_init = read_data_memory_init()
 
     # Reset and enable
     dut.executor_nreset <= 0
@@ -49,7 +36,7 @@ async def test_executor_memory(dut):
     await Timer(1, 'us')
     assert dut.executor_ready.value.integer
     assert dut.executor_update_Rd.value.integer
-    expected_value = _read_word(Rn_value+(Rd_Rm_value>>5), init_data_memory)
+    expected_value = read_data_memory_word(Rn_value+(Rd_Rm_value>>5), data_memory_init)
     assert dut.executor_Rd_value.value.integer == expected_value
 
     dut._log.info("Test STR")
@@ -86,7 +73,7 @@ async def test_executor_data(dut):
 
     clkedge = init_posedge_clk(dut.executor_clk)
 
-    init_data_memory = _read_init_data_memory()
+    data_memory_init = read_data_memory_init()
     init_regfile = read_regfile_init()
 
     # Reset and enable
@@ -155,7 +142,7 @@ async def test_executor_branch(dut):
 
     clkedge = init_posedge_clk(dut.executor_clk)
 
-    init_data_memory = _read_init_data_memory()
+    data_memory_init = read_data_memory_init()
     init_regfile = read_regfile_init()
 
     # Reset and enable
