@@ -60,7 +60,7 @@ module cpu(
     );
 
     logic [`BIT_WIDTH-1:0] decoder_inst;
-    logic [`BIT_WIDTH-1:0] decoder_Rn_value, decoder_Rm_value;
+    logic [`BIT_WIDTH-1:0] decoder_Rn_value, decoder_Rd_Rm_value;
     logic decoder_ready;
     decoder the_decoder(
         .clk(clk), .nreset(nreset), .enable(fetcher_ready),
@@ -70,7 +70,7 @@ module cpu(
         .regfile_read_addr2(regfile_read_addr2),
         .regfile_read_value1(regfile_read_value1),
         .regfile_read_value2(regfile_read_value2),
-        .Rn_value(decoder_Rn_value), .Rm_value(decoder_Rm_value)
+        .Rn_value(decoder_Rn_value), .Rd_Rm_value(decoder_Rd_Rm_value)
     );
 
     logic executor_ready;
@@ -85,7 +85,7 @@ module cpu(
         .update_pc(executor_update_pc), .pc(pc), .new_pc(executor_new_pc),
         .update_Rd(executor_update_Rd), .Rd_value(executor_Rd_value),
         .decoder_inst(decoder_inst), .Rn_value(decoder_Rn_value),
-        .Rm_value(decoder_Rm_value)
+        .Rd_Rm_value(decoder_Rd_Rm_value)
     );
 
     logic regfilewriter_ready;

@@ -205,7 +205,7 @@ module decoder(
 		input logic [`BIT_WIDTH-1:0] regfile_read_value1,
 		input logic [`BIT_WIDTH-1:0] regfile_read_value2,
 		output logic [`BIT_WIDTH-1:0] Rn_value, // First operand
-		output logic [`BIT_WIDTH-1:0] Rm_value // Second operand for operand2 or offset
+		output logic [`BIT_WIDTH-1:0] Rd_Rm_value // Rd for STR, otherwise Rm
 	);
 
 	// Control logic
@@ -230,7 +230,7 @@ module decoder(
 
 	// Datapath logic
 	assign Rn_value = regfile_read_value1;
-	assign Rm_value = regfile_read_value2;
+	assign Rd_Rm_value = regfile_read_value2;
 	// Determine instruction to output from decoder
 	logic [`BIT_WIDTH-1:0] next_decoder_inst;
 	always_comb begin
@@ -264,7 +264,17 @@ module decoder(
 				end
 				`FMT_MEMORY: begin
 					regfile_read_addr1 = decode_Rn(next_decoder_inst);
-					if (!decode_mem_offset_is_immediate(next_decoder_inst)) begin
+                    // We don't support three simultaneous regfile reads
+                    // So we read Rd instead of Rm for STR only
+                    if (!decode_mem_is_load(next_decoder_inst)) begin
+                        regfile_read_addr2 = decode_Rd(next_decoder_inst);
+                        `ifndef SYNTHESIS
+                            assert(decode_mem_offset_is_immediate(next_decoder_inst)) else begin
+                                $error("Using Rm on STR is not supported");
+                            end
+                        `endif
+                    end
+					else if (!decode_mem_offset_is_immediate(next_decoder_inst)) begin
 						regfile_read_addr2 = decode_Rm(next_decoder_inst);
 					end
 				end

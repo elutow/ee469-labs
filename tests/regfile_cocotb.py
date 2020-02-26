@@ -3,22 +3,14 @@ import random
 import cocotb
 from cocotb.triggers import Timer
 
-from _tests_common import init_posedge_clk
-
-def _read_regfile_init(init_hex_path, mutable=False):
-    with open(init_hex_path) as regfile_init_hex:
-        hex_entries = regfile_init_hex.read().splitlines()
-    result = tuple(int(line, 16) for line in hex_entries if line)
-    if mutable:
-        return list(result)
-    return result
+from _tests_common import init_posedge_clk, read_regfile_init
 
 @cocotb.test()
 async def test_regfile_read(dut):
     """Test regfile reads"""
 
     clkedge = init_posedge_clk(dut.regfile_clk)
-    regfile_init = _read_regfile_init('cpu/regfile_init.hex')
+    regfile_init = read_regfile_init()
 
     # Reset
     dut.regfile_nreset <= 0
@@ -58,7 +50,7 @@ async def test_regfile_read(dut):
 async def test_regfile_write(dut):
     """Test regfile writes"""
     clkedge = init_posedge_clk(dut.regfile_clk)
-    expected_regfile = _read_regfile_init('cpu/regfile_init.hex', mutable=True)
+    expected_regfile = read_regfile_init(mutable=True)
 
     async def _check_regfile_expected():
         # Set read to some instruction to not trigger PC-specific behavior

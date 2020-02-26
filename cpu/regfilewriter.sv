@@ -36,7 +36,7 @@ module regfilewriter(
     // - enable -> READY (keep processing at 1 instruction / cycle)
     // - !enable -> NOT READY (transition to halt)
     logic next_ready;
-    assign next_ready = enable && !ready;
+    assign next_ready = enable;
     always_ff @(posedge clk) begin
         if (nreset) begin
             ready <= next_ready;

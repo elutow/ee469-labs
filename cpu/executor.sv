@@ -205,7 +205,7 @@ module executor(
         // Datapath signals from decoder
         input logic [`BIT_WIDTH-1:0] decoder_inst,
         input logic [`BIT_WIDTH-1:0] Rn_value, // First operand
-        input logic [`BIT_WIDTH-1:0] Rm_value // Second operand for operand2 or offset
+        input logic [`BIT_WIDTH-1:0] Rd_Rm_value // Rd for STR, otherwise Rm
     );
 
     // Currnet Program Status Register (CPSR)
@@ -232,7 +232,7 @@ module executor(
     // - enable -> READY (keep processing at 1 instruction / cycle)
     // - !enable -> NOT READY (transition to halt)
     logic next_ready;
-    assign next_ready = enable && !ready;
+    assign next_ready = enable;
     always_ff @(posedge clk) begin
         if (nreset) begin
             ready <= next_ready;
@@ -299,7 +299,7 @@ module executor(
         if (next_ready && condition_passes) begin
             case (decode_format(next_executor_inst))
                 `FMT_MEMORY: begin
-                    mem_offset = compute_mem_offset(next_executor_inst, Rm_value);
+                    mem_offset = compute_mem_offset(next_executor_inst, Rd_Rm_value);
                     mem_new_Rn_value = Rn_value + mem_offset;
 
                     `ifndef SYNTHESIS
@@ -320,14 +320,19 @@ module executor(
                     end
                     else begin
                         // STR
-                        // TODO: We need to read the value of Rd, which means we need another port in regfile and here
+                        `ifndef SYNTHESIS
+                            // Ensure Rd_Rm_value is Rd value
+                            assert(decode_mem_offset_is_immediate(next_executor_inst)) else begin
+                                $error("Using Rm on STR is not supported");
+                            end
+                        `endif
                         data_write_enable = 1'b1;
                         data_write_addr = mem_new_Rn_value[`DATA_SIZE_L2-1:0];
-                        data_write_value = Rn_value;
+                        data_write_value = Rd_Rm_value;
                     end
                 end
                 `FMT_DATA: begin
-                    dataproc_operand2 = compute_dataproc_operand2(next_executor_inst, Rm_value);
+                    dataproc_operand2 = compute_dataproc_operand2(next_executor_inst, Rd_Rm_value);
                     {next_update_Rd, dataproc_result} = run_dataproc_operation(
                         decode_dataproc_opcode(next_executor_inst),
                         Rn_value,
@@ -387,18 +392,19 @@ module executor(
         end
     end
     // Data memory read/write logic
-    assign data_read_value[31:24] = data_memory[data_read_addr+3];
-    assign data_read_value[23:16] = data_memory[data_read_addr+2];
-    assign data_read_value[15:8] = data_memory[data_read_addr+1];
-    assign data_read_value[7:0] = data_memory[data_read_addr];
+    // NOTE: Our CPU is big-endian
+    assign data_read_value[31:24] = data_memory[data_read_addr];
+    assign data_read_value[23:16] = data_memory[data_read_addr+1];
+    assign data_read_value[15:8] = data_memory[data_read_addr+2];
+    assign data_read_value[7:0] = data_memory[data_read_addr+3];
     always_ff @(posedge clk) begin
         if (nreset) begin
             data_read_addr <= next_data_read_addr;
             if (data_write_enable) begin
-                data_memory[data_write_addr+3] <= data_write_value[31:24];
-                data_memory[data_write_addr+2] <= data_write_value[23:16];
-                data_memory[data_write_addr+1] <= data_write_value[15:8];
-                data_memory[data_write_addr] <= data_write_value[7:0];
+                data_memory[data_write_addr] <= data_write_value[31:24];
+                data_memory[data_write_addr+1] <= data_write_value[23:16];
+                data_memory[data_write_addr+2] <= data_write_value[15:8];
+                data_memory[data_write_addr+3] <= data_write_value[7:0];
             end
         end
         else begin
