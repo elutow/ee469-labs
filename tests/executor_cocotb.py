@@ -164,6 +164,20 @@ async def test_executor_branch(dut):
     dut.executor_nreset <= 1
     dut.executor_enable <= 1
 
+    # Test regular branch
+    dut.executor_decoder_inst <= int('eafffffa', 16) # b 0x68 (relative to 0x78)
+    pc_init = 20
+    dut.executor_pc <= pc_init
+    await clkedge
+    # We need to wait a little since the values just became available
+    # at the last clkedge
+    await Timer(1, 'us')
+    assert dut.executor_ready.value.integer
+    assert not dut.executor_update_Rd.value.integer
+    assert dut.executor_update_pc.value.integer
+    assert dut.executor_new_pc.value.integer == pc_init + (0x68 - 0x78)
+
+    # Test branch with link
     dut.executor_decoder_inst <= int('ebfffffb', 16) # bl 0x68 (relative to 0x74)
     pc_init = 16
     dut.executor_pc <= pc_init
@@ -175,7 +189,6 @@ async def test_executor_branch(dut):
     assert dut.executor_update_Rd.value.integer
     assert dut.executor_Rd_value.value.integer == pc_init + 4
     assert dut.executor_update_pc.value.integer
-    print('value:', dut.executor_new_pc.value.integer)
     assert dut.executor_new_pc.value.integer == pc_init + (0x68 - 0x74)
 
     # Reset dut to initial state

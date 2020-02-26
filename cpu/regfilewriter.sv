@@ -61,6 +61,11 @@ module regfilewriter(
                     // value for the link register
                     regfile_write_addr1 = `REG_LR_INDEX;
                 end
+                else begin
+                    `ifndef SYNTHESIS
+                        $error("update_Rd cannot be set on non-link branches");
+                    `endif
+                end
             end
             else begin
                 regfile_write_addr1 = decode_Rd(executor_inst);
