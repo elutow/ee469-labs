@@ -79,9 +79,13 @@ module cpu(
     logic [`BIT_WIDTH-1:0] executor_new_pc;
     logic executor_update_Rd;
     logic [`BIT_WIDTH-1:0] executor_Rd_value;
+    logic [`CPSR_SIZE-1:0] executor_cpsr;
+    logic executor_condition_passes;
     executor the_executor(
         .clk(clk), .nreset(nreset), .enable(decoder_ready),
-        .ready(executor_ready), .executor_inst(executor_inst),
+        .ready(executor_ready), .cpsr(executor_cpsr),
+        .condition_passes(executor_condition_passes),
+        .executor_inst(executor_inst),
         .update_pc(executor_update_pc), .pc(pc), .new_pc(executor_new_pc),
         .update_Rd(executor_update_Rd), .Rd_value(executor_Rd_value),
         .decoder_inst(decoder_inst), .Rn_value(decoder_Rn_value),
@@ -166,5 +170,7 @@ module cpu(
         debug_port_vector[17*8:21*8-1] = regfile_write_value1;
         debug_port_vector[21*8:22*8-1] = {7'b0, regfile_write_enable1};
         debug_port_vector[22*8:26*8-1] = fetcher_inst;
+        debug_port_vector[26*8:27*8-1] = {4'b0, executor_cpsr};
+        debug_port_vector[27*8:28*8-1] = {7'b0, executor_condition_passes};
     end   // comb
 endmodule

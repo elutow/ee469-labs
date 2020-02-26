@@ -195,6 +195,9 @@ module executor(
         input wire nreset,
         input logic enable,
         output logic ready,
+        // Diagnostics outputs
+        output logic [`CPSR_SIZE-1:0] cpsr,
+        output logic condition_passes,
         // Datapath I/O
         output logic [`BIT_WIDTH-1:0] executor_inst,
         output logic update_pc, // Whether we have a new PC
@@ -209,7 +212,7 @@ module executor(
     );
 
     // Currnet Program Status Register (CPSR)
-    logic [`CPSR_SIZE-1:0] cpsr, next_cpsr;
+    logic [`CPSR_SIZE-1:0] next_cpsr;
 
     // Data memory declaration
     // Data memory is a byte-addressable memory space for memory instructions
@@ -269,8 +272,6 @@ module executor(
     logic [`DATA_SIZE_L2-1:0] data_write_addr;
     logic [`BIT_WIDTH-1:0] data_read_value, data_write_value;
     logic data_write_enable;
-    // Whether we have
-    logic condition_passes;
     // Whether to store the dataproc instruction result in Rd
     logic [`BIT_WIDTH-1:0] dataproc_operand2;
     logic [`BIT_WIDTH-1:0] dataproc_result;
@@ -295,6 +296,7 @@ module executor(
         data_write_addr = `DATA_SIZE_L2'bX;
         data_write_value = `BIT_WIDTH'bX;
 
+        // Whether the instruction condition passes CPSR for execution
         condition_passes = check_condition(
             cpsr,
             decode_condition(next_executor_inst)

@@ -77,6 +77,24 @@ def _parse_ready_flags(ready_flags):
         return '(none ready)'
     return f'({",".join(asserted_ready)})'
 
+def _parse_cpsr(cpsr_int):
+    assert cpsr_int >= 0
+    assert cpsr_int < 2**4
+    # Based on constants.svh
+    cpsr_symbols = {
+        1 << 3: 'N',
+        1 << 2: 'Z',
+        1 << 1: 'C',
+        1 << 0: 'V',
+    }
+    result = ''
+    for idx, sym_name in cpsr_symbols.items():
+        if cpsr_int & idx:
+            result += sym_name
+        else:
+            result += ' '
+    return result
+
 def _io_unpack(struct_format, buf):
     """Reads from io.BytesIO with format according to struct_format"""
     size = struct.calcsize(struct_format)
@@ -101,4 +119,8 @@ def parse_cycle_output(cycle_count, cycle_output):
     regfile_write1_str = '<-' if regfile_write_enable1 else '//'
     print(f'r{regfile_write_addr1}{regfile_write1_str}{regfile_write_value1:#0{10}x}', end='\t')
     fetcher_inst, = _io_unpack('>I', buf_io)
+    executor_cpsr, = _io_unpack('>B', buf_io)
+    executor_condition_passes, = _io_unpack('>B', buf_io)
+    condition_passes_str = '' if executor_condition_passes else '->!exe'
+    print(f'({_parse_cpsr(executor_cpsr)}){condition_passes_str}', end='\t')
     print(_decode_instruction(fetcher_inst))
