@@ -164,7 +164,8 @@ except IndexError:
 
 # -- Define the Sintesizing Builder
 synth = Builder(
-    action='yosys -p \"read_verilog -sv $SOURCES ; synth_ice40 -abc2 -relut -json $TARGET\" {}'.format(
+    # scratchpad command is to workaround https://github.com/YosysHQ/yosys/issues/1675
+    action='yosys -p \"scratchpad -set abc.script +strash;ifraig;scorr;dc2;dretime;strash;dch,-f;if;mfs2 ; read_verilog -sv $SOURCES ; check -initdrv -mapped ; synth_ice40 -abc9 -json $TARGET\" {}'.format(
         '' if VERBOSE_ALL or VERBOSE_YOSYS else '-q'
     ),
     suffix='.json',
