@@ -173,7 +173,7 @@ synth = Builder(
     source_scanner=list_scanner)
 
 pnr = Builder(
-    action='nextpnr-ice40 --freq 16 --ignore-loops --randomize-seed --{0}{1} --package {2} --pcf {3} --asc $TARGET {4} --json $SOURCE'.format(
+    action='nextpnr-ice40 --freq 16 --randomize-seed --{0}{1} --package {2} --pcf {3} --asc $TARGET {4} --json $SOURCE'.format(
         FPGA_TYPE, FPGA_SIZE, FPGA_PACK, PCF,
         '' if VERBOSE_ALL or VERBOSE_NEXTPNR else '-q'),
     suffix='.asc',
