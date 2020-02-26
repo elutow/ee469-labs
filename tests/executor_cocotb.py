@@ -78,7 +78,7 @@ async def test_executor_memory(dut):
     assert dut.executor_Rd_value.value.integer == 0xdeadbeef
 
     # Reset dut to initial state
-    dut.decoder_enable.setimmediatevalue(0)
+    dut.executor_enable.setimmediatevalue(0)
 
 @cocotb.test()
 async def test_executor_data(dut):
@@ -147,7 +147,7 @@ async def test_executor_data(dut):
     assert dut.executor_Rd_value.value.integer == Rd_Rm_value
 
     # Reset dut to initial state
-    dut.decoder_enable.setimmediatevalue(0)
+    dut.executor_enable.setimmediatevalue(0)
 
 @cocotb.test()
 async def test_executor_branch(dut):
@@ -179,4 +179,4 @@ async def test_executor_branch(dut):
     assert dut.executor_new_pc.value.integer == pc_init + (0x68 - 0x74)
 
     # Reset dut to initial state
-    dut.decoder_enable.setimmediatevalue(0)
+    dut.executor_enable.setimmediatevalue(0)
