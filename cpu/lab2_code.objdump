@@ -34,3 +34,4 @@ Disassembly of section .data:
   68:	e1a0f00e 	mov	pc, lr
   6c:	e1b0f00e 	movs	pc, lr
   70:	e08fe004 	add	lr, pc, r4
+  74:	ebfffffb 	bl	0x68

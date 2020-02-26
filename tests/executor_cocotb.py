@@ -96,6 +96,7 @@ async def test_executor_data(dut):
     dut.executor_enable <= 1
 
     # Test result of one data instruction
+
     dut.executor_decoder_inst <= int('e0864007', 16) # add	r4, r6, r7
     Rn_value = 3 # r6
     Rd_Rm_value = 5 # r7
@@ -110,7 +111,72 @@ async def test_executor_data(dut):
     assert dut.executor_Rd_value.value.integer == Rn_value + Rd_Rm_value
 
     # Test conditional execution
-    # TODO(elutow)
+
+    # Set CPSR
+    dut.executor_decoder_inst <= int('e1540005', 16) # cmp r4, r5
+    Rn_value = 65535 # r4
+    Rd_Rm_value = 65535 # r5
+    dut.executor_Rn_value <= Rn_value
+    dut.executor_Rd_Rm_value <= Rd_Rm_value
+    await clkedge
+    # We need to wait a little since the values just became available
+    # at the last clkedge
+    await Timer(1, 'us')
+    assert dut.executor_ready.value.integer
+    assert not dut.executor_update_Rd.value.integer
+
+    # Test non-execution
+    dut.executor_decoder_inst <= int('13a0e000', 16) # movne lr, #0
+    await clkedge
+    # We need to wait a little since the values just became available
+    # at the last clkedge
+    await Timer(1, 'us')
+    assert dut.executor_ready.value.integer
+    assert not dut.executor_update_Rd.value.integer
+
+    # Test execution
+    dut.executor_decoder_inst <= int('01a0f00e', 16) # moveq pc, lr
+    Rd_Rm_value = 42 # r5
+    dut.executor_Rd_Rm_value <= Rd_Rm_value
+    await clkedge
+    # We need to wait a little since the values just became available
+    # at the last clkedge
+    await Timer(1, 'us')
+    assert dut.executor_ready.value.integer
+    assert dut.executor_update_Rd.value.integer
+    assert dut.executor_Rd_value.value.integer == Rd_Rm_value
+
+    # Reset dut to initial state
+    dut.decoder_enable.setimmediatevalue(0)
+
+@cocotb.test()
+async def test_executor_branch(dut):
+    """Test executor on branch instructions"""
+
+    clkedge = init_posedge_clk(dut.executor_clk)
+
+    init_data_memory = _read_init_data_memory()
+    init_regfile = read_regfile_init()
+
+    # Reset and enable
+    dut.executor_nreset <= 0
+    await clkedge
+    dut.executor_nreset <= 1
+    dut.executor_enable <= 1
+
+    dut.executor_decoder_inst <= int('ebfffffb', 16) # bl 0x68 (relative to 0x74)
+    pc_init = 16
+    dut.executor_pc <= pc_init
+    await clkedge
+    # We need to wait a little since the values just became available
+    # at the last clkedge
+    await Timer(1, 'us')
+    assert dut.executor_ready.value.integer
+    assert dut.executor_update_Rd.value.integer
+    assert dut.executor_Rd_value.value.integer == pc_init + 4
+    assert dut.executor_update_pc.value.integer
+    print('value:', dut.executor_new_pc.value.integer)
+    assert dut.executor_new_pc.value.integer == pc_init + (0x68 - 0x74)
 
     # Reset dut to initial state
     dut.decoder_enable.setimmediatevalue(0)

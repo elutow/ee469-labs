@@ -40,6 +40,8 @@ start:
 	blne start
 
 	@ These instructions should be ignored
+unused:
 	mov pc, lr
 	movs pc, lr
 	add lr, pc, r4
+	bl unused

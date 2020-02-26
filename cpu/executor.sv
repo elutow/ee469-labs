@@ -116,7 +116,7 @@ function automatic [`BIT_WIDTH:0] run_dataproc_operation;
         `DATAOP_ORR: result = Rn_value | operand2;        // ORR
         `DATAOP_MOV: result = operand2;                    // MOV
         `DATAOP_BIC: result = Rn_value & (~operand2);    // BIC
-        `DATAOP_MVN: result = ~Rn_value;                        // MVN
+        `DATAOP_MVN: result = ~operand2;                 // MVN
         default: begin
             `ifndef SYNTHESIS
                 $error("Unknown dataproc operation: %b", operation);
