@@ -216,10 +216,8 @@ module executor(
 
     // Data memory declaration
     // Data memory is a byte-addressable memory space for memory instructions
-    // TODO: We need to make data_memory word-aligned so it will be synthesized to BRAM
-    // If this is necessary, we should create a data_memory module that can handle
-    // byte-aligned read/writes with word-align read/writes
-    reg [7:0] data_memory [0:`DATA_SIZE-1];
+    // TODO: Remove this and finish implementing data_memory module
+    reg [`BIT_WIDTH-1:0] data_memory [0:`DATA_SIZE-1];
     initial begin
         $readmemh("cpu/lab2_data.hex", data_memory);
     end
@@ -308,7 +306,7 @@ module executor(
                     mem_new_Rn_value = Rn_value + mem_offset;
 
                     `ifndef SYNTHESIS
-                        assert(mem_new_Rn_value < `DATA_SIZE) else begin
+                        assert((mem_new_Rn_value >> 2) < `DATA_SIZE) else begin
                             $error(
                                 "Invalid data memory address for Rn(%d)=%h and mem_offset=%h for inst %h",
                                 decode_Rn(next_executor_inst), Rn_value,
@@ -318,7 +316,8 @@ module executor(
                     `endif
                     if (decode_mem_is_load(next_executor_inst)) begin
                         // LDR
-                        next_data_read_addr = mem_new_Rn_value[`DATA_SIZE_L2-1:0];
+                        // NOTE: We force word alignment here
+                        next_data_read_addr = mem_new_Rn_value[`DATA_SIZE_L2+1:2];
                         next_update_Rd = 1'b1;
                         // NOTE: We will assign data memory output in comb block
                         // below
@@ -332,7 +331,8 @@ module executor(
                             end
                         `endif
                         data_write_enable = 1'b1;
-                        data_write_addr = mem_new_Rn_value[`DATA_SIZE_L2-1:0];
+                        // NOTE: We force word alignment here
+                        data_write_addr = mem_new_Rn_value[`DATA_SIZE_L2+1:2];
                         data_write_value = Rd_Rm_value;
                     end
                 end
@@ -397,19 +397,12 @@ module executor(
         end
     end
     // Data memory read/write logic
-    // NOTE: Our CPU is big-endian
-    assign data_read_value[31:24] = data_memory[data_read_addr];
-    assign data_read_value[23:16] = data_memory[data_read_addr+1];
-    assign data_read_value[15:8] = data_memory[data_read_addr+2];
-    assign data_read_value[7:0] = data_memory[data_read_addr+3];
+    assign data_read_value = data_memory[data_read_addr];
     always_ff @(posedge clk) begin
         if (nreset) begin
             data_read_addr <= next_data_read_addr;
             if (data_write_enable) begin
-                data_memory[data_write_addr] <= data_write_value[31:24];
-                data_memory[data_write_addr+1] <= data_write_value[23:16];
-                data_memory[data_write_addr+2] <= data_write_value[15:8];
-                data_memory[data_write_addr+3] <= data_write_value[7:0];
+                data_memory[data_write_addr] <= data_write_value;
             end
         end
         else begin

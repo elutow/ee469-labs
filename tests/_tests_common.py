@@ -26,23 +26,25 @@ def read_data_memory_init():
     return data_int
 
 def read_data_memory_word(addr, data_memory):
-    # Assumptions:
-    # - data_memory is an array of words
-    # - Entries are in ascending order by address
-    # - CPU is operating in big-endian mode
-    private_addr = addr >> 2
-    word_offset = addr % 4
-    value1 = data_memory[private_addr]
-    value0 = data_memory[private_addr+1]
-    # Bits to keep
-    word1_upper = (4-word_offset)*8 - 1
-    #word1_lower = 0
-    #word0_upper = 31
-    word0_lower = (4-word_offset)*8
+    return data_memory[addr >> 2]
+    # TODO: Uncomment when proper data memory is implemented
+    ## Assumptions:
+    ## - data_memory is an array of words
+    ## - Entries are in ascending order by address
+    ## - CPU is operating in big-endian mode
+    #private_addr = addr >> 2
+    #word_offset = addr % 4
+    #value1 = data_memory[private_addr]
+    #value0 = data_memory[private_addr+1]
+    ## Bits to keep
+    #word1_upper = (4-word_offset)*8 - 1
+    ##word1_lower = 0
+    ##word0_upper = 31
+    #word0_lower = (4-word_offset)*8
 
-    if word_offset == 0:
-        # word0_* are invalid values here
-        return value1
-    result = (value1 % (word1_upper+1)) << (31-word1_upper)
-    result += value0 >> word0_lower
-    return result
+    #if word_offset == 0:
+    #    # word0_* are invalid values here
+    #    return value1
+    #result = (value1 % (word1_upper+1)) << (31-word1_upper)
+    #result += value0 >> word0_lower
+    #return result

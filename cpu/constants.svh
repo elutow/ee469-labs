@@ -20,7 +20,7 @@
 `define INST_COUNT_L2 6
 // Size of data memory in words
 `define DATA_SIZE 16
-`define DATA_SIZE_L2 6
+`define DATA_SIZE_L2 4
 // DEBUG_BYTES Must be power of 2
 `define DEBUG_BYTES 32
 
