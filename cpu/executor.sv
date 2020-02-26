@@ -291,6 +291,9 @@ module executor(
         mem_new_Rn_value = `BIT_WIDTH'bX;
         mem_offset = `BIT_WIDTH'bX;
         data_write_enable = 1'b0;
+        next_data_read_addr = `DATA_SIZE_L2'bX;
+        data_write_addr = `DATA_SIZE_L2'bX;
+        data_write_value = `BIT_WIDTH'bX;
 
         condition_passes = check_condition(
             cpsr,
