@@ -45,3 +45,203 @@ executor
 
 writeback
 - Write back to regfile
+
+Yosys testing (at commit b6bea328e7b917e933cdc702ebbe70706b092d74)
+==================================================================
+
+Yosys 0.9 (stable) statistics with "synth_ice40 -retime -relut -abc2":
+
+Number of wires:               8115
+Number of wire bits:          13735
+Number of public wires:         821
+Number of public wire bits:    5851
+Number of memories:               0
+Number of memory bits:            0
+Number of processes:              0
+Number of cells:               7919
+SB_CARRY                      442
+SB_DFF                        868
+SB_DFFE                       453
+SB_IO                           2
+SB_LUT4                      6145
+SB_PLL40_CORE                   1
+SB_RAM40_4K                     8
+
+Yosys 0.9 (stable) statistics with just "synth_ice40":
+
+Number of wires:               6537
+Number of wire bits:          12204
+Number of public wires:         742
+Number of public wire bits:    5654
+Number of memories:               0
+Number of memory bits:            0
+Number of processes:              0
+Number of cells:               7771
+SB_CARRY                      442
+SB_DFF                        267
+SB_DFFE                       696
+SB_DFFESR                     185
+SB_DFFESS                      53
+SB_DFFSR                      172
+SB_DFFSS                        5
+SB_IO                           2
+SB_LUT4                      5940
+SB_PLL40_CORE                   1
+SB_RAM40_4K                     8
+
+Yosys 0.9 (stable) statistics with "synth_ice40 -abc2 -relut":
+
+Number of wires:               6522
+Number of wire bits:          12234
+Number of public wires:         823
+Number of public wire bits:    5780
+Number of memories:               0
+Number of memory bits:            0
+Number of processes:              0
+Number of cells:               7674
+SB_CARRY                      442
+SB_DFF                        267
+SB_DFFE                       696
+SB_DFFESR                     185
+SB_DFFESS                      53
+SB_DFFSR                      172
+SB_DFFSS                        5
+SB_IO                           2
+SB_LUT4                      5843
+SB_PLL40_CORE                   1
+SB_RAM40_4K                     8
+
+Yosys 0.9 (stable) statistics with "synth_ice40 -abc2":
+
+Number of wires:               6556
+Number of wire bits:          12268
+Number of public wires:         823
+Number of public wire bits:    5780
+Number of memories:               0
+Number of memory bits:            0
+Number of processes:              0
+Number of cells:               7709
+SB_CARRY                      442
+SB_DFF                        267
+SB_DFFE                       696
+SB_DFFESR                     185
+SB_DFFESS                      53
+SB_DFFSR                      172
+SB_DFFSS                        5
+SB_IO                           2
+SB_LUT4                      5878
+SB_PLL40_CORE                   1
+SB_RAM40_4K                     8
+
+yosys 0.9-dev6edca05 statistics with "synth_ice40"
+
+Number of wires:               6327
+Number of wire bits:          11974
+Number of public wires:        6327
+Number of public wire bits:   11974
+Number of memories:               0
+Number of memory bits:            0
+Number of processes:              0
+Number of cells:               7523
+SB_CARRY                      442
+SB_DFF                        271
+SB_DFFE                       694
+SB_DFFESR                     182
+SB_DFFESS                      53
+SB_DFFSR                      174
+SB_DFFSS                        5
+SB_IO                           2
+SB_LUT4                      5691
+SB_PLL40_CORE                   1
+SB_RAM40_4K                     8
+
+yosys 0.9-dev6edca05 statistics with "synth_ice40 -abc2"
+
+Number of wires:               6407
+Number of wire bits:          12099
+Number of public wires:        6407
+Number of public wire bits:   12099
+Number of memories:               0
+Number of memory bits:            0
+Number of processes:              0
+Number of cells:               7522
+SB_CARRY                      442
+SB_DFF                        271
+SB_DFFE                       694
+SB_DFFESR                     182
+SB_DFFESS                      53
+SB_DFFSR                      174
+SB_DFFSS                        5
+SB_IO                           2
+SB_LUT4                      5690
+SB_PLL40_CORE                   1
+SB_RAM40_4K                     8
+
+yosys 0.9-dev6edca05 statistics with "synth_ice40 -abc2 -relut"
+
+Number of wires:               6407
+Number of wire bits:          12099
+Number of public wires:        6407
+Number of public wire bits:   12099
+Number of memories:               0
+Number of memory bits:            0
+Number of processes:              0
+Number of cells:               7522
+SB_CARRY                      442
+SB_DFF                        271
+SB_DFFE                       694
+SB_DFFESR                     182
+SB_DFFESS                      53
+SB_DFFSR                      174
+SB_DFFSS                        5
+SB_IO                           2
+SB_LUT4                      5690
+SB_PLL40_CORE                   1
+SB_RAM40_4K                     8
+
+yosys 0.9-dev6edca05 statistics with "synth_ice40 -abc9" (NOTE: -abc9 is experimental!)
+
+Number of wires:               5973
+Number of wire bits:          11644
+Number of public wires:        5973
+Number of public wire bits:   11644
+Number of memories:               0
+Number of memory bits:            0
+Number of processes:              0
+Number of cells:               7159
+SB_CARRY                      442
+SB_DFF                        271
+SB_DFFE                       694
+SB_DFFESR                     182
+SB_DFFESS                      53
+SB_DFFSR                      174
+SB_DFFSS                        5
+SB_IO                           2
+SB_LUT4                      5327
+SB_PLL40_CORE                   1
+SB_RAM40_4K                     8
+
+Yosys testing at commit d1096c4bc97d3c3ba8bf5023d8730ac831ae3909
+==========================================================
+
+yosys 0.9-dev6edca05 statistics with "synth_ice40 -abc9" (NOTE: -abc9 is experimental!)
+
+Number of wires:               2849
+Number of wire bits:           7687
+Number of public wires:        2849
+Number of public wire bits:    7687
+Number of memories:               0
+Number of memory bits:            0
+Number of processes:              0
+Number of cells:               3583
+SB_CARRY                      420
+SB_DFF                        307
+SB_DFFE                       182
+SB_DFFESR                     182
+SB_DFFESS                      53
+SB_DFFSR                      170
+SB_DFFSS                        6
+SB_IO                           2
+SB_LUT4                      2250
+SB_PLL40_CORE                   1
+SB_RAM40_4K                    10
