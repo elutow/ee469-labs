@@ -8,6 +8,10 @@ import subprocess
 
 """Functions to parse output from the TinyFPGA USB port"""
 
+# Adjust this number to be the number of debug bytes
+# i.e. cpu/constants.svh value minus one
+DEBUG_BYTES = 31
+
 _DATA_OPCODES = {
     0b0001: 'EOR',
     0b0010: 'SUB',
