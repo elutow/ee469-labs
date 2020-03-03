@@ -219,7 +219,7 @@ module executor(
     // TODO: Remove this and finish implementing data_memory module
     reg [`BIT_WIDTH-1:0] data_memory [0:`DATA_SIZE-1];
     initial begin
-        $readmemh("cpu/lab2_data.hex", data_memory);
+        $readmemh("cpu/lab3_data.hex", data_memory);
     end
 
     // Control logic
