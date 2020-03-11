@@ -1,7 +1,7 @@
 // Data memory module
 // Implements a data memory supporting word-length reads/writes at byte-aligned addresses
 // Reads take 1 clock cycle, writes take two clock cycles
-// Supports simultaneous read and write to same location
+// NOTE: We don't support simultaneous read and write to different address
 
 `include "cpu/constants.svh"
 
@@ -29,18 +29,18 @@ module data_memory(
     // ---------------
     // See logic below for more details about these registers
 
+    // Shared read/write wires/registers
+    logic [`DATA_SIZE_L2-1:0] private_rs1, private_rs0; // ram read selects
+    logic [`DATA_SIZE_L2-1:0] private_next_rs1, private_next_rs0; // ram read selects
+    logic [`BIT_WIDTH-1:0] private_rd1, private_rd0; // ram read data: 1 is before 0 in address value
+
     // Read wires/registers
 
     logic [`BIT_WIDTH-1:0] prev_read_addr; // Used for comb logic on current clock cycle
-    logic [`BIT_WIDTH-1:0] private_rd1, private_rd0; // ram read data: 1 is before 0 in address value
     logic [`BIT_WIDTH-1:0] private_read1, private_read0; // read value resolved to either ram or values being written
-    logic [`DATA_SIZE_L2-1:0] private_rs1, private_rs0; // ram read selects
-    logic [`DATA_SIZE_L2-1:0] private_next_rs1, private_next_rs0; // ram read selects
 
     // Write wires/registers
 
-     // original values for registers to write: 1 is before 0 in address value
-    logic [`BIT_WIDTH-1:0] private_orig_rd1, private_orig_rd0;
     // Read selects for orig values
     logic [`BIT_WIDTH-1:0] prev_write_addr, prev_write_value;
     logic prev_write_enable;
@@ -50,20 +50,37 @@ module data_memory(
     // Write data set at second clock edge
     logic [`BIT_WIDTH-1:0] private_wd1, private_wd0;
 
+    // -------------------------------
+    // Shared logic for read and write
+    // -------------------------------
+
+    // Because of limited read ports, we have to share the read ports
+
+    // Compute shared read select
+    always_comb begin
+        if (write_enable) begin
+            // We are in write mode; ignore read requests
+            private_next_rs1 = private_next_ws1;
+            private_next_rs0 = private_next_ws0;
+        end
+        else begin
+            `ifndef SYNTHESIS
+                assert(read_addr < 4*(`DATA_SIZE-1)) else begin
+                    $error("read address is beyond data size: %h", read_addr);
+                end
+            `endif
+            private_next_rs1 = read_addr[`DATA_SIZE_L2+1:2]; // Divide by 4 == LSR by 2
+            private_next_rs0 = private_next_rs1 + `DATA_SIZE_L2'd1;
+        end
+    end // comb
+    // Shared read data
+    assign private_rd1 = data_memory_ram[private_rs1];
+    assign private_rd0 = data_memory_ram[private_rs0];
+
     // -------------
     // Reading logic
     // -------------
 
-    // Compute private read selects
-    always_comb begin
-        `ifndef SYNTHESIS
-            assert(read_addr < 4*(`DATA_SIZE-1)) else begin
-                $error("read address is beyond data size: %h", read_addr);
-            end
-        `endif
-        private_next_rs1 = read_addr[`DATA_SIZE_L2+1:2]; // Divide by 4 == LSR by 2
-        private_next_rs0 = private_next_rs1 + `DATA_SIZE_L2'd1;
-    end // comb
     always_ff @(posedge clk) begin
         if (nreset) begin
             private_rs1 <= private_next_rs1;
@@ -76,9 +93,6 @@ module data_memory(
             prev_read_addr <= `BIT_WIDTH'b0;
         end
     end // ff
-    // Output private read data
-    assign private_rd1 = data_memory_ram[private_rs1];
-    assign private_rd0 = data_memory_ram[private_rs0];
     // Determine read data values based on values being written
     // Prevents data hazard when data is being written on the second write cycle
     always_comb begin
@@ -125,6 +139,8 @@ module data_memory(
 
     // First clock cycle: Read old value
     // Compute private orig value read selects
+    // NOTE: These write selects will be used above in shared read/write code
+    // when write is enabled
     always_comb begin
         `ifndef SYNTHESIS
             assert(write_addr < 4*(`DATA_SIZE-1)) else begin
@@ -144,9 +160,6 @@ module data_memory(
             private_ws0 <= `DATA_SIZE_L2'b0;
         end
     end // comb
-    // Output private orig read data (data available on second clock cycle)
-    assign private_orig_rd1 = data_memory_ram[private_ws1];
-    assign private_orig_rd0 = data_memory_ram[private_ws0];
 
     // Second clock cycle: Write new values
     // Save important write information from first clock cycle
@@ -173,32 +186,32 @@ module data_memory(
             end
             2'd1: begin
                 private_wd1 = {
-                    private_orig_rd1[`BYTE_3_UPPER:`BYTE_3_LOWER],
+                    private_rd1[`BYTE_3_UPPER:`BYTE_3_LOWER],
                     prev_write_value[`BYTE_3_UPPER:`BYTE_1_LOWER]
                 };
                 private_wd0 = {
                     prev_write_value[`BYTE_0_UPPER:`BYTE_0_LOWER],
-                    private_orig_rd0[`BYTE_2_UPPER:`BYTE_0_LOWER]
+                    private_rd0[`BYTE_2_UPPER:`BYTE_0_LOWER]
                 };
             end
             2'd2: begin
                 private_wd1 = {
-                    private_orig_rd1[`BYTE_3_UPPER:`BYTE_2_LOWER],
+                    private_rd1[`BYTE_3_UPPER:`BYTE_2_LOWER],
                     prev_write_value[`BYTE_3_UPPER:`BYTE_2_LOWER]
                 };
                 private_wd0 = {
                     prev_write_value[`BYTE_1_UPPER:`BYTE_0_LOWER],
-                    private_orig_rd0[`BYTE_1_UPPER:`BYTE_0_LOWER]
+                    private_rd0[`BYTE_1_UPPER:`BYTE_0_LOWER]
                 };
             end
             2'd3: begin
                 private_wd1 = {
-                    private_orig_rd1[`BYTE_3_UPPER:`BYTE_1_LOWER],
+                    private_rd1[`BYTE_3_UPPER:`BYTE_1_LOWER],
                     prev_write_value[`BYTE_3_UPPER:`BYTE_3_LOWER]
                 };
                 private_wd0 = {
                     prev_write_value[`BYTE_2_UPPER:`BYTE_0_LOWER],
-                    private_orig_rd0[`BYTE_0_UPPER:`BYTE_0_LOWER]
+                    private_rd0[`BYTE_0_UPPER:`BYTE_0_LOWER]
                 };
             end
         endcase
