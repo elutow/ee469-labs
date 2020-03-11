@@ -31,8 +31,6 @@ start:
 	ldr r4, [r8, #2]	@ test immediate offset
 	ldr r4, [r8, +r9, LSR #5]	@ test register shift offset
 
-	nop
-
 	@ Test conditional execution
 	cmp r4, r5
 	movne lr, #0
@@ -41,7 +39,4 @@ start:
 
 	@ These instructions should be ignored
 unused:
-	mov pc, lr
-	movs pc, lr
-	add lr, pc, r4
 	bl unused

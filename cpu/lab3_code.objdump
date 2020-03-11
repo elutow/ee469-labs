@@ -26,12 +26,8 @@ Disassembly of section .data:
   48:	e5984000 	ldr	r4, [r8]
   4c:	e5984002 	ldr	r4, [r8, #2]
   50:	e79842a9 	ldr	r4, [r8, r9, lsr #5]
-  54:	e1a00000 	nop			; (mov r0, r0)
-  58:	e1540005 	cmp	r4, r5
-  5c:	13a0e000 	movne	lr, #0
-  60:	01a0f00e 	moveq	pc, lr
-  64:	1bffffe5 	blne	0x0
-  68:	e1a0f00e 	mov	pc, lr
-  6c:	e1b0f00e 	movs	pc, lr
-  70:	e08fe004 	add	lr, pc, r4
-  74:	ebfffffb 	bl	0x68
+  54:	e1540005 	cmp	r4, r5
+  58:	13a0e000 	movne	lr, #0
+  5c:	01a0f00e 	moveq	pc, lr
+  60:	1bffffe6 	blne	0x0
+  64:	ebfffffe 	bl	0x64
