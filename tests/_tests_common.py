@@ -10,7 +10,7 @@ def init_posedge_clk(dut_clk):
     return RisingEdge(dut_clk)
 
 def read_regfile_init(mutable=False):
-    with open('cpu/regfile_init.hex') as regfile_init_hex:
+    with open('cpu/init/regfile.hex') as regfile_init_hex:
         hex_entries = regfile_init_hex.read().splitlines()
     result = tuple(int(line, 16) for line in hex_entries if line)
     if mutable:
@@ -20,7 +20,7 @@ def read_regfile_init(mutable=False):
 # Data memory helpers
 
 def read_data_memory_init():
-    with open('cpu/lab3_data.hex') as data_hex:
+    with open('cpu/init/data.hex') as data_hex:
         return bytearray.fromhex(data_hex.read())
 
 def read_data_memory_word(addr, data_memory):

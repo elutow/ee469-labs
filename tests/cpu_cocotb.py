@@ -20,7 +20,7 @@ async def test_cpu(dut):
     await clkedge
     dut._log.debug('Reset complete')
 
-    with open('cpu/lab3_code.hex') as code_file:
+    with open('cpu/init/code.hex') as code_file:
         num_instructions = len(code_file.read().splitlines())
 
     print("===========BEGIN PARSED DEBUG PORT OUTPUT===========")

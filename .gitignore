@@ -4,7 +4,7 @@
 /hardware.json
 /hardware.rpt
 *.o
-/cpu/*.raw
+/cpu/init/*.raw
 
 # Python ignore
 __pycache__/

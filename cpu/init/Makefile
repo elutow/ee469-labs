@@ -1,6 +1,6 @@
 #!/usr/bin/make -f
 
-TARGET=lab3_code
+TARGET=code
 
 .PHONY: default clean
 

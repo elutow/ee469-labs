@@ -21,7 +21,7 @@ module data_memory(
     // each location from 0:63 contains 4 addresses that correspond to the input address value
     logic [`BIT_WIDTH-1:0] data_memory_ram [0:`DATA_SIZE-1];
     initial begin
-        $readmemh("cpu/lab3_data.hex", data_memory_ram);
+        $readmemh("cpu/init/data.hex", data_memory_ram);
     end
 
     // ---------------

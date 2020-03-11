@@ -42,7 +42,7 @@ module regfile(
     reg [`BIT_WIDTH-1:0] register_file [0:`REG_COUNT-2];
 
     initial begin
-        $readmemh("cpu/regfile_init.hex", register_file);
+        $readmemh("cpu/init/regfile.hex", register_file);
     end
 
     always_comb begin

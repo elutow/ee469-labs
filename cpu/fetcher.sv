@@ -19,7 +19,7 @@ module fetcher(
     reg [`BIT_WIDTH-1:0] code_memory [0:`INST_COUNT-1];
     initial begin
         //$readmemh("testcode/code.hex", code_memory);
-        $readmemh("cpu/lab3_code.hex", code_memory);
+        $readmemh("cpu/init/code.hex", code_memory);
     end
 
     // Control logic

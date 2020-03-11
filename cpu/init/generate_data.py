@@ -1,4 +1,4 @@
-with open('lab3_data.hex', 'w') as f:
+with open('data.hex', 'w') as f:
     for i in range(16):
         result = 0
         for j in range(4):
