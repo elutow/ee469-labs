@@ -18,7 +18,7 @@ async def test_decoder_assert(dut):
     dut.decoder_enable <= 1
 
     # Read instruction hex
-    with open('cpu/lab2_code.hex') as code_hex:
+    with open('cpu/lab3_code.hex') as code_hex:
         for inst_hexstr in code_hex.read().splitlines():
             dut._log.debug('Testing decoder instruction:', inst_hexstr)
             instr = int(inst_hexstr, 16)

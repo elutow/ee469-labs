@@ -52,3 +52,7 @@ apio sim
 To get verbose compilation & synthesis output during builds (and statistics of FPGA resources used), add the `--verbose-yosys` flag to `apio build`.
 
 To get verbose place & route output during builds, add the `--verbose-nextpnr` flag to `apio build`.
+
+Caveats of using Verilator under cocotb: https://cocotb.readthedocs.io/en/latest/simulator_support.html#verilator
+
+* It does not support delayed assignments

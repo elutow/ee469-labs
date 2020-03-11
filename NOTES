@@ -1,6 +1,5 @@
 TODO:
 
-- implement load pre-increment, don't write back
 Pipelining: Implement bubbles/no-ops and bypasses
 - Register values for immediate register read after register write
 - take values from beginning of stages back into beginning of previous stages
@@ -11,15 +10,6 @@ Pipelining: Implement bubbles/no-ops and bypasses
         1. stall decode, fetch
         2. continue to fetch, but if branch is taken, then get rid of decode and fetch instructions. This is the faster solution
 
-From Slack channel (Han Yang Du):
-
-Anyway if youre attempting to view the block ram pass through the build log you wanna look for 30.24. Executing MEMORY_BRAM pass (mapping $mem cells to block memories). in the yosys build log and then you'll see a line that goes Processing top.the_cpu.data_mem.mem: with data_mem and mem being whatever you called your stuff. If it mapped successfully, it'll eventually output something like
-Creating $__ICE40_RAM4K_M0 cell at grid position <0 0 0>: the_cpu.data_mem.mem.0.0.0
-Creating $__ICE40_RAM4K_M0 cell at grid position <1 0 0>: the_cpu.data_mem.mem.1.0.0
-If it failed, it'll output
-No acceptable bram resources found.
-For me, a byte addressable big endian memory system reg [7:0] mem [0:???] couldnt map to bram but a word addressable memory reg [31:0] mem [0:???] worked fine
-
 Modules shared between modules:
 - regfile
 
@@ -27,24 +17,26 @@ Cycles with modules:
 
 === Cycle 0 ===
 
-fetcher
-- Fetch instruction
+fetcher: Fetch instruction
 
 === Cycle 1 ===
 
-decoder
-- Read regfile
+decoder: Read regfile
 
 === Cycle 2 ===
 
-executor
-- Executes the instruction
-- Access data memory (load or store). This serves the function of the memory access stage
+executor: Executes the instruction
 
 === Cycle 3 ===
 
-writeback
-- Write back to regfile
+memaccessor: Reads and writes from data memory
+- For STR: Read existing values during this cycle
+
+=== Cycle 4 ===
+
+regfilewriter: Write back to regfile
+memaccessor
+- For STR: Actually perform the write
 
 Yosys testing (at commit b6bea328e7b917e933cdc702ebbe70706b092d74)
 ==================================================================

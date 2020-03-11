@@ -61,7 +61,7 @@ def _parse_code_objdump(filename):
     contents = {int(k.strip(), 16): v.strip().replace('\t', ' ') for k, v in contents}
     return contents
 
-_INST_ASM = _parse_code_objdump('cpu/lab2_code.objdump')
+_INST_ASM = _parse_code_objdump('cpu/lab3_code.objdump')
 
 def _decode_instruction(inst_int):
     return _INST_ASM.get(inst_int, f'(could not get asm for: {hex(inst_int)}')

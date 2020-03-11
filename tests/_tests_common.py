@@ -20,14 +20,13 @@ def read_regfile_init(mutable=False):
 # Data memory helpers
 
 def read_data_memory_init():
-    with open('cpu/lab2_data.hex') as data_hex:
-        data_str = data_hex.read().splitlines()
-    data_int = [int(x, 16) for x in data_str if x]
-    return data_int
+    with open('cpu/lab3_data.hex') as data_hex:
+        return bytearray.fromhex(data_hex.read())
 
 def read_data_memory_word(addr, data_memory):
-    return data_memory[addr >> 2]
-    # TODO: Uncomment when proper data memory is implemented
+    assert addr >= 0
+    assert addr < len(data_memory) + 4
+    return int.from_bytes(data_memory[addr:addr+4], 'big')
     ## Assumptions:
     ## - data_memory is an array of words
     ## - Entries are in ascending order by address
@@ -36,15 +35,44 @@ def read_data_memory_word(addr, data_memory):
     #word_offset = addr % 4
     #value1 = data_memory[private_addr]
     #value0 = data_memory[private_addr+1]
-    ## Bits to keep
-    #word1_upper = (4-word_offset)*8 - 1
-    ##word1_lower = 0
-    ##word0_upper = 31
-    #word0_lower = (4-word_offset)*8
-
+    ## Bit boundary index of words between bits to overwrite and bits to keep
+    ## On word 1, this is exclusive (i.e. boundary - 1)
+    ## On word 0, this is inclusive
+    #word_boundary = (4-word_offset)*8
+    #
     #if word_offset == 0:
     #    # word0_* are invalid values here
     #    return value1
-    #result = (value1 % (word1_upper+1)) << (31-word1_upper)
-    #result += value0 >> word0_lower
+    #result = (value1 % 2**word_boundary) << (32-word_boundary)
+    #result += value0 >> word_boundary
+    #assert result >= 0
+    #assert result < 2**32
     #return result
+
+def write_data_memory_word(addr, value, data_memory):
+    assert addr >= 0
+    assert addr < len(data_memory) + 4
+    data_memory[addr:addr+4] = int.to_bytes(value, 4, 'big')
+    ## Same assumptions as read_data_memory_word
+    #assert value >= 0
+    #assert value < 2**32
+    #private_addr = addr >> 2
+    #word_offset = addr % 4
+    #value1 = data_memory[private_addr]
+    #value0 = data_memory[private_addr+1]
+    ## Bit boundary index of words between bits to overwrite and bits to keep
+    ## On word 1, this is exclusive (i.e. boundary - 1)
+    ## On word 0, this is inclusive
+    #word_boundary = (4-word_offset)*8
+    #
+    #if word_offset == 0:
+    #    data_memory[private_addr] = value
+    #    return
+    ## Clear out bits used to store new word
+    #value1 ^= value1 % 2**word_boundary
+    #value0 = value0 % 2**word_boundary
+    ## Add value to value1 and value0
+    #value1 |= value >> word_boundary
+    #value0 |= value ^ (value % 2**word_boundary)
+    #data_memory[private_addr] = value1
+    #data_memory[private_addr+1] = value0
