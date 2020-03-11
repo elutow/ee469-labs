@@ -2,7 +2,18 @@
 
 import cocotb
 from cocotb.clock import Clock
+from cocotb.handle import SimHandleBase
 from cocotb.triggers import RisingEdge
+
+def _get_hex(raw_obj):
+    if isinstance(raw_obj, SimHandleBase):
+        return hex(raw_obj.value.integer)
+    return hex(raw_obj)
+
+def assert_eq(first, second):
+    if first == second:
+        return
+    raise AssertionError('{} != {}'.format(_get_hex(first), _get_hex(second)))
 
 def init_posedge_clk(dut_clk):
     # Start clock running in background
@@ -21,14 +32,19 @@ def read_regfile_init(mutable=False):
 
 def read_data_memory_init():
     with open('cpu/init/data.hex') as data_hex:
-        return bytearray.fromhex(data_hex.read())
+        hex_entries = data_hex.read().splitlines()
+        return list(int(line, 16) for line in hex_entries if line)
 
 def read_data_memory_word(addr, data_memory):
+    # Trim to word
+    addr >>= 2
     assert addr >= 0
-    assert addr < len(data_memory) + 4
-    return int.from_bytes(data_memory[addr:addr+4], 'big')
+    assert addr < len(data_memory)
+    return data_memory[addr]
 
 def write_data_memory_word(addr, value, data_memory):
+    # Trim to word
+    addr >>= 2
     assert addr >= 0
-    assert addr < len(data_memory) + 4
-    data_memory[addr:addr+4] = int.to_bytes(value, 4, 'big')
+    assert addr < len(data_memory)
+    data_memory[addr] = value

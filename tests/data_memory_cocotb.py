@@ -4,7 +4,7 @@ import cocotb
 from cocotb.triggers import Timer
 
 from _tests_common import (
-    init_posedge_clk, read_data_memory_init, read_data_memory_word,
+    assert_eq, init_posedge_clk, read_data_memory_init, read_data_memory_word,
     write_data_memory_word
 )
 
@@ -62,7 +62,7 @@ async def test_data_memory_write(dut):
         # at the last clkedge
         await Timer(1, 'us')
         # 3. See if read picks up value on next clock cycle
-        assert dut.data_memory_read_value == test_value
+        assert_eq(dut.data_memory_read_value, test_value)
 
         # 4. Disable write enable, see if read still picks up value (i.e. value actually committed)
         dut.data_memory_write_enable <= 0
@@ -71,7 +71,7 @@ async def test_data_memory_write(dut):
         # We need to wait a little since the values just became available
         # at the last clkedge
         await Timer(1, 'us')
-        assert dut.data_memory_read_value == test_value
+        assert_eq(dut.data_memory_read_value, test_value)
 
         # 5. Try changing offset of value within word, see if that reflects on reads
 
