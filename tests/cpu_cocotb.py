@@ -4,8 +4,8 @@ from _tests_common import init_posedge_clk
 
 from cpu_output import DEBUG_BYTES, parse_cycle_output
 
-# Number of instructions to run for in test code
-NUM_INSTRUCTIONS = 26
+# Padding to handle multiple cycles for startup, branching, other hazards
+PIPELINE_PADDING = 8
 
 @cocotb.test()
 async def test_cpu(dut):
@@ -20,8 +20,11 @@ async def test_cpu(dut):
     await clkedge
     dut._log.debug('Reset complete')
 
+    with open('cpu/lab3_code.hex') as code_file:
+        num_instructions = len(code_file.read().splitlines())
+
     print("===========BEGIN PARSED DEBUG PORT OUTPUT===========")
-    for cycle_count in range(4*NUM_INSTRUCTIONS+4):
+    for cycle_count in range(5*num_instructions+PIPELINE_PADDING):
         dut._log.debug(f'Running CPU cycle {cycle_count}')
         debug_port_bytes = dut.cpu_debug_port_vector.value.integer.to_bytes(DEBUG_BYTES, 'big')
         parse_cycle_output(cycle_count, debug_port_bytes)

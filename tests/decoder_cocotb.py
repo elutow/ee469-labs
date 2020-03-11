@@ -23,14 +23,14 @@ async def test_decoder_assert(dut):
             dut._log.debug('Testing decoder instruction:', inst_hexstr)
             instr = int(inst_hexstr, 16)
             dut.decoder_fetcher_inst.setimmediatevalue(instr)
-            assert dut.decoder_fetcher_inst.value.integer == instr
+            assert dut.decoder_fetcher_inst == instr
             await clkedge
             # We need to wait a little since the values just became available
             # at the last clkedge
             await Timer(1, 'us')
             assert dut.decoder_ready.value.integer
-            assert dut.decoder_fetcher_inst.value.integer == instr
-            assert dut.decoder_decoder_inst.value.integer == instr
+            assert dut.decoder_fetcher_inst == instr
+            assert dut.decoder_decoder_inst == instr
 
     # Reset dut to initial state
     dut.decoder_enable.setimmediatevalue(0)
@@ -51,15 +51,15 @@ async def test_decoder_regfile(dut):
     dut.decoder_fetcher_inst.setimmediatevalue(int('e0864007', 16)) # add r4, r6, r7
     # Make immediates take effect
     await Timer(1, 'us')
-    assert dut.decoder_regfile_read_addr1.value.integer == 6
-    assert dut.decoder_regfile_read_addr2.value.integer == 7
+    assert dut.decoder_regfile_read_addr1 == 6
+    assert dut.decoder_regfile_read_addr2 == 7
 
     # Test memory inst
     dut.decoder_fetcher_inst.setimmediatevalue(int('e79842a9', 16)) # ldr r4, [r8, r9, lsr #5]
     # Make immediates take effect
     await Timer(1, 'us')
-    assert dut.decoder_regfile_read_addr1.value.integer == 8
-    assert dut.decoder_regfile_read_addr2.value.integer == 9
+    assert dut.decoder_regfile_read_addr1 == 8
+    assert dut.decoder_regfile_read_addr2 == 9
 
     # Reset dut to initial state
     dut.decoder_enable.setimmediatevalue(0)

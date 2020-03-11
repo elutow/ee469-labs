@@ -35,7 +35,7 @@ async def test_regfilewriter_branch(dut):
     clkedge, current_pc = await _setup_regfilewriter(dut)
 
     # Test regular branch
-    dut.regfilewriter_executor_inst <= int('eafffffa', 16) # b 0x68 (relative to 0x78)
+    dut.regfilewriter_memaccessor_inst <= int('eafffffa', 16) # b 0x68 (relative to 0x78)
     new_pc = 0x68
     dut.regfilewriter_update_pc <= 1
     dut.regfilewriter_new_pc <= new_pc
@@ -47,7 +47,7 @@ async def test_regfilewriter_branch(dut):
     assert dut.regfilewriter_ready.value.integer
     assert not dut.regfilewriter_regfile_write_enable1.value.integer
     assert dut.regfilewriter_regfile_update_pc.value.integer
-    assert dut.regfilewriter_regfile_new_pc.value.integer == new_pc
+    assert dut.regfilewriter_regfile_new_pc == new_pc
 
     _cleanup_regfilewriter(dut)
 
@@ -59,7 +59,7 @@ async def test_regfilewriter_branchlink(dut):
     clkedge, current_pc = await _setup_regfilewriter(dut)
 
     # Test branch with link
-    dut.regfilewriter_executor_inst <= int('ebfffffb', 16) # bl 0x68 (relative to 0x74)
+    dut.regfilewriter_memaccessor_inst <= int('ebfffffb', 16) # bl 0x68 (relative to 0x74)
     dut.regfilewriter_update_Rd <= 1
     lr_init = 16
     dut.regfilewriter_Rd_value <= lr_init
@@ -72,10 +72,10 @@ async def test_regfilewriter_branchlink(dut):
     await Timer(1, 'us')
     assert dut.regfilewriter_ready.value.integer
     assert dut.regfilewriter_regfile_write_enable1.value.integer
-    assert dut.regfilewriter_regfile_write_addr1.value.integer == 14 # link register
-    assert dut.regfilewriter_regfile_write_value1.value.integer == lr_init
+    assert dut.regfilewriter_regfile_write_addr1 == 14 # link register
+    assert dut.regfilewriter_regfile_write_value1 == lr_init
     assert dut.regfilewriter_regfile_update_pc.value.integer
-    assert dut.regfilewriter_regfile_new_pc.value.integer == new_pc
+    assert dut.regfilewriter_regfile_new_pc == new_pc
 
     _cleanup_regfilewriter(dut)
 
@@ -87,7 +87,7 @@ async def test_regfilewriter_nonbranch(dut):
     clkedge, current_pc = await _setup_regfilewriter(dut)
 
     # Test non-branch instruction
-    dut.regfilewriter_executor_inst <= int('e79842a9', 16) # ldr r4, [r8, r9, lsr #5]
+    dut.regfilewriter_memaccessor_inst <= int('e79842a9', 16) # ldr r4, [r8, r9, lsr #5]
     Rd_value = 42 # r4
     dut.regfilewriter_update_Rd <= 1
     dut.regfilewriter_Rd_value <= Rd_value
@@ -97,10 +97,10 @@ async def test_regfilewriter_nonbranch(dut):
     await Timer(1, 'us')
     assert dut.regfilewriter_ready.value.integer
     assert dut.regfilewriter_regfile_update_pc.value.integer
-    assert dut.regfilewriter_regfile_new_pc.value.integer == current_pc + 4
+    assert dut.regfilewriter_regfile_new_pc == current_pc + 4
     assert dut.regfilewriter_regfile_write_enable1.value.integer
-    assert dut.regfilewriter_regfile_write_addr1.value.integer == 4 # r4
-    assert dut.regfilewriter_regfile_write_value1.value.integer == Rd_value
+    assert dut.regfilewriter_regfile_write_addr1 == 4 # r4
+    assert dut.regfilewriter_regfile_write_value1 == Rd_value
 
     _cleanup_regfilewriter(dut)
 
@@ -112,7 +112,7 @@ async def test_regfilewriter_nonbranch(dut):
     clkedge, current_pc = await _setup_regfilewriter(dut)
 
     # Test write addr overriding PC logic
-    dut.regfilewriter_executor_inst <= int('e1a0f00e', 16) # mov pc, lr
+    dut.regfilewriter_memaccessor_inst <= int('e1a0f00e', 16) # mov pc, lr
     dut.regfilewriter_update_pc <= 0
     Rd_value = 20 # pc
     dut.regfilewriter_update_Rd <= 1
@@ -124,8 +124,8 @@ async def test_regfilewriter_nonbranch(dut):
     assert dut.regfilewriter_ready.value.integer
     assert not dut.regfilewriter_regfile_update_pc.value.integer
     assert dut.regfilewriter_regfile_write_enable1.value.integer
-    assert dut.regfilewriter_regfile_write_addr1.value.integer == 15 # pc
-    assert dut.regfilewriter_regfile_write_value1.value.integer == Rd_value
+    assert dut.regfilewriter_regfile_write_addr1 == 15 # pc
+    assert dut.regfilewriter_regfile_write_value1 == Rd_value
 
     _cleanup_regfilewriter(dut)
 
@@ -139,7 +139,7 @@ async def test_regfilewriter_pc_nonexe(dut):
     clkedge, current_pc = await _setup_regfilewriter(dut)
 
     # Test write addr overriding PC logic
-    dut.regfilewriter_executor_inst <= int('01a0f00e', 16) # moveq	pc, lr
+    dut.regfilewriter_memaccessor_inst <= int('01a0f00e', 16) # moveq	pc, lr
     dut.regfilewriter_update_pc <= 0
     Rd_value = 24 # pc, but it should not be written
     assert current_pc != Rd_value
@@ -152,7 +152,7 @@ async def test_regfilewriter_pc_nonexe(dut):
     await Timer(1, 'us')
     assert dut.regfilewriter_ready.value.integer
     assert dut.regfilewriter_regfile_update_pc.value.integer
-    assert dut.regfilewriter_regfile_new_pc.value.integer == current_pc + 4
+    assert dut.regfilewriter_regfile_new_pc == current_pc + 4
     assert not dut.regfilewriter_regfile_write_enable1.value.integer
 
     _cleanup_regfilewriter(dut)

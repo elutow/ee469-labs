@@ -68,10 +68,11 @@ def _decode_instruction(inst_int):
 
 def _parse_ready_flags(ready_flags):
     ready_codes = {
-        0b0001: 'WB',
-        0b0010: 'EXE',
-        0b0100: 'DEC',
-        0b1000: 'FET',
+        0b00001: 'WB',
+        0b00010: 'MEM',
+        0b00100: 'EXE',
+        0b01000: 'DEC',
+        0b10000: 'FET',
     }
     asserted_ready = list()
     for code, short_name in ready_codes.items():

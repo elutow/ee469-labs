@@ -75,6 +75,11 @@ function automatic [`BIT_WIDTH-1:0] compute_mem_offset;
     if (decode_mem_offset_is_immediate(inst)) begin
         offset = {20'b0, inst[11:0]}; // 12-bit immediate
     end else begin
+        `ifndef SYNTHESIS
+            assert(decode_mem_is_load(inst)) else begin
+                $error("compute_mem_offset: Register offset supports LDR only");
+            end
+        `endif
         offset = shift_value_by_type(inst, Rm_value);
     end
 
@@ -204,7 +209,12 @@ module executor(
         input logic [`BIT_WIDTH-1:0] pc,
         output logic [`BIT_WIDTH-1:0] new_pc,
         output logic update_Rd, // Whether we should update Rd (result) in writeback
-        output logic [`BIT_WIDTH-1:0] Rd_value,
+        output logic [`BIT_WIDTH-1:0] databranch_Rd_value, // Rd for branch and data formats
+        // memaccessor-specific outputs
+        output logic [`BIT_WIDTH-1:0] mem_read_addr,
+        output logic mem_write_enable,
+        output logic [`BIT_WIDTH-1:0] mem_write_addr,
+        output logic [`BIT_WIDTH-1:0] mem_write_value,
         // Datapath signals from decoder
         input logic [`BIT_WIDTH-1:0] decoder_inst,
         input logic [`BIT_WIDTH-1:0] Rn_value, // First operand
@@ -213,14 +223,6 @@ module executor(
 
     // Currnet Program Status Register (CPSR)
     logic [`CPSR_SIZE-1:0] next_cpsr;
-
-    // Data memory declaration
-    // Data memory is a byte-addressable memory space for memory instructions
-    // TODO: Remove this and finish implementing data_memory module
-    reg [`BIT_WIDTH-1:0] data_memory [0:`DATA_SIZE-1];
-    initial begin
-        $readmemh("cpu/lab3_data.hex", data_memory);
-    end
 
     // Control logic
     // ---Execution FSM---
@@ -266,15 +268,15 @@ module executor(
     // So we might as well run all instructions and set values before next clock
     // cycle
     // Data memory wires/registers
-    logic [`DATA_SIZE_L2-1:0] data_read_addr, next_data_read_addr;
-    logic [`DATA_SIZE_L2-1:0] data_write_addr;
-    logic [`BIT_WIDTH-1:0] data_read_value, data_write_value;
-    logic data_write_enable;
+    logic [`BIT_WIDTH-1:0] next_mem_read_addr;
+    logic next_mem_write_enable;
+    logic [`BIT_WIDTH-1:0] next_mem_write_addr;
+    logic [`BIT_WIDTH-1:0] next_mem_write_value;
     // Whether to store the dataproc instruction result in Rd
     logic [`BIT_WIDTH-1:0] dataproc_operand2;
     logic [`BIT_WIDTH-1:0] dataproc_result;
     logic next_update_Rd;
-    logic [`BIT_WIDTH-1:0] databranch_Rd_value, next_databranch_Rd_value;
+    logic [`BIT_WIDTH-1:0] next_databranch_Rd_value;
     logic [`BIT_WIDTH-1:0] mem_new_Rn_value, mem_offset;
     logic next_update_pc;
     logic [`BIT_WIDTH-1:0] next_new_pc;
@@ -289,10 +291,10 @@ module executor(
         next_cpsr = cpsr;
         mem_new_Rn_value = `BIT_WIDTH'bX;
         mem_offset = `BIT_WIDTH'bX;
-        data_write_enable = 1'b0;
-        next_data_read_addr = `DATA_SIZE_L2'bX;
-        data_write_addr = `DATA_SIZE_L2'bX;
-        data_write_value = `BIT_WIDTH'bX;
+        next_mem_write_enable = 1'b0;
+        next_mem_read_addr = `BIT_WIDTH'bX;
+        next_mem_write_addr = `BIT_WIDTH'bX;
+        next_mem_write_value = `BIT_WIDTH'bX;
 
         // Whether the instruction condition passes CPSR for execution
         condition_passes = check_condition(
@@ -300,6 +302,11 @@ module executor(
             decode_condition(next_executor_inst)
         );
         if (next_ready && condition_passes) begin
+            // TODO: Add a new flag to indicate whether we need to stall the pipeline
+            // in the cpu module. Must be 1 when:
+            // * If LDR instruction, Rd is PC
+            // * If data format, Rd is PC
+            // * Always for branch format (i.e. update_pc == 1)
             case (decode_format(next_executor_inst))
                 `FMT_MEMORY: begin
                     mem_offset = compute_mem_offset(next_executor_inst, Rd_Rm_value);
@@ -316,11 +323,8 @@ module executor(
                     `endif
                     if (decode_mem_is_load(next_executor_inst)) begin
                         // LDR
-                        // NOTE: We force word alignment here
-                        next_data_read_addr = mem_new_Rn_value[`DATA_SIZE_L2+1:2];
+                        next_mem_read_addr = mem_new_Rn_value;
                         next_update_Rd = 1'b1;
-                        // NOTE: We will assign data memory output in comb block
-                        // below
                     end
                     else begin
                         // STR
@@ -330,10 +334,9 @@ module executor(
                                 $error("Using Rm on STR is not supported");
                             end
                         `endif
-                        data_write_enable = 1'b1;
-                        // NOTE: We force word alignment here
-                        data_write_addr = mem_new_Rn_value[`DATA_SIZE_L2+1:2];
-                        data_write_value = Rd_Rm_value;
+                        next_mem_write_enable = 1'b1;
+                        next_mem_write_addr = mem_new_Rn_value;
+                        next_mem_write_value = Rd_Rm_value;
                     end
                 end
                 `FMT_DATA: begin
@@ -354,28 +357,17 @@ module executor(
                 end
                 `FMT_BRANCH: begin
                     next_update_pc = 1'b1;
+                    // TODO: When we hit executor, value of pc register will already be (instruction address)+8
                     next_new_pc = pc + `BIT_WIDTH'd8 + decode_branch_offset(next_executor_inst);
                     if (decode_branch_is_link(next_executor_inst)) begin
                         // NOTE: In regfilewriter, we will set the address to
                         // write to the link register
                         next_update_Rd = 1'b1;
+                        // TODO: We should subtract 4 here instead
                         next_databranch_Rd_value = pc + `BIT_WIDTH'd4;
                     end
                 end
                 default: begin end
-            endcase
-        end
-    end // comb
-    // Combinational logic to determine output Rd value
-    // We need to determine Rd's value here because data memory takes a clock
-    // cycle to become available
-    always_comb begin
-        Rd_value = `BIT_WIDTH'bX;
-        // NOTE: update_Rd can be 1 only if the instruction passes conditions
-        if (ready && update_Rd) begin
-            case (decode_format(next_executor_inst))
-                `FMT_MEMORY: Rd_value = data_read_value;
-                default: Rd_value = databranch_Rd_value; // DATA and BRANCH formats
             endcase
         end
     end // comb
@@ -387,6 +379,10 @@ module executor(
             databranch_Rd_value <= next_databranch_Rd_value;
             update_pc <= next_update_pc;
             new_pc <= next_new_pc;
+            mem_read_addr <= next_mem_read_addr;
+            mem_write_enable <= next_mem_write_enable;
+            mem_write_addr <= next_mem_write_addr;
+            mem_write_value <= next_mem_write_value;
         end
         else begin
             cpsr <= `CPSR_SIZE'b0;
@@ -394,19 +390,10 @@ module executor(
             databranch_Rd_value <= `BIT_WIDTH'b0;
             update_pc <= 1'b0;
             new_pc <= `BIT_WIDTH'b0;
-        end
-    end
-    // Data memory read/write logic
-    assign data_read_value = data_memory[data_read_addr];
-    always_ff @(posedge clk) begin
-        if (nreset) begin
-            data_read_addr <= next_data_read_addr;
-            if (data_write_enable) begin
-                data_memory[data_write_addr] <= data_write_value;
-            end
-        end
-        else begin
-            data_read_addr <= `DATA_SIZE_L2'b0;
+            mem_read_addr <= `BIT_WIDTH'b0;
+            mem_write_enable <= 1'b0;
+            mem_write_addr <= `BIT_WIDTH'b0;
+            mem_write_value <= `BIT_WIDTH'b0;
         end
     end
 endmodule

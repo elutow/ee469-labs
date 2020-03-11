@@ -13,7 +13,7 @@ module regfilewriter(
         // From regfile
         input logic [`BIT_WIDTH-1:0] pc,
         // From executor
-        input logic [`BIT_WIDTH-1:0] executor_inst,
+        input logic [`BIT_WIDTH-1:0] memaccessor_inst,
         input logic update_pc, // Whether we have a new PC
         input logic [`BIT_WIDTH-1:0] new_pc,
         input logic update_Rd, // Whether we should update Rd (result) in writeback
@@ -55,8 +55,8 @@ module regfilewriter(
         regfile_new_pc = `BIT_WIDTH'bX;
         if (next_ready && update_Rd) begin
             regfile_write_enable1 = 1'b1;
-            if (decode_format(executor_inst) == `FMT_BRANCH) begin
-                if (decode_branch_is_link(executor_inst)) begin
+            if (decode_format(memaccessor_inst) == `FMT_BRANCH) begin
+                if (decode_branch_is_link(memaccessor_inst)) begin
                     // NOTE: In executor, we set the write value to the new
                     // value for the link register
                     regfile_write_addr1 = `REG_LR_INDEX;
@@ -68,7 +68,7 @@ module regfilewriter(
                 end
             end
             else begin
-                regfile_write_addr1 = decode_Rd(executor_inst);
+                regfile_write_addr1 = decode_Rd(memaccessor_inst);
             end
         end
         // Update PC

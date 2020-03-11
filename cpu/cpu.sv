@@ -78,27 +78,50 @@ module cpu(
     logic executor_update_pc;
     logic [`BIT_WIDTH-1:0] executor_new_pc;
     logic executor_update_Rd;
-    logic [`BIT_WIDTH-1:0] executor_Rd_value;
+    logic [`BIT_WIDTH-1:0] executor_databranch_Rd_value;
     logic [`CPSR_SIZE-1:0] executor_cpsr;
     logic executor_condition_passes;
+    logic [`BIT_WIDTH-1:0] executor_mem_read_addr;
+    logic executor_mem_write_enable;
+    logic [`BIT_WIDTH-1:0] executor_mem_write_addr;
+    logic [`BIT_WIDTH-1:0] executor_mem_write_value;
     executor the_executor(
         .clk(clk), .nreset(nreset), .enable(decoder_ready),
         .ready(executor_ready), .cpsr(executor_cpsr),
         .condition_passes(executor_condition_passes),
         .executor_inst(executor_inst),
         .update_pc(executor_update_pc), .pc(pc), .new_pc(executor_new_pc),
-        .update_Rd(executor_update_Rd), .Rd_value(executor_Rd_value),
+        .update_Rd(executor_update_Rd), .databranch_Rd_value(executor_databranch_Rd_value),
+        .mem_read_addr(executor_mem_read_addr), .mem_write_enable(executor_mem_write_enable),
+        .mem_write_addr(executor_mem_write_addr), .mem_write_value(executor_mem_write_value),
         .decoder_inst(decoder_inst), .Rn_value(decoder_Rn_value),
         .Rd_Rm_value(decoder_Rd_Rm_value)
     );
 
+    logic memaccessor_ready;
+    logic [`BIT_WIDTH-1:0] memaccessor_inst;
+    logic memaccessor_update_pc;
+    logic [`BIT_WIDTH-1:0] memaccessor_new_pc;
+    logic memaccessor_update_Rd;
+    logic [`BIT_WIDTH-1:0] memaccessor_Rd_value;
+    memaccessor the_memaccessor(
+        .clk, .nreset, .enable(executor_ready), .ready(memaccessor_ready),
+        .executor_inst, .memaccessor_inst,
+        .read_addr(executor_mem_read_addr), .write_enable(executor_mem_write_enable),
+        .write_addr(executor_mem_write_addr), .write_value(executor_mem_write_value),
+        .executor_update_pc, .executor_new_pc, .executor_update_Rd,
+        .databranch_Rd_value(executor_databranch_Rd_value),
+        .update_pc(memaccessor_update_pc), .new_pc(memaccessor_new_pc),
+        .update_Rd(memaccessor_update_Rd), .Rd_value(memaccessor_Rd_value)
+    );
+
     logic regfilewriter_ready;
     regfilewriter the_regfilewriter(
-        .clk(clk), .nreset(nreset), .enable(executor_ready),
-        .ready(regfilewriter_ready), .pc(pc), .executor_inst(executor_inst),
-        .update_pc(executor_update_pc),
-        .new_pc(executor_new_pc), .update_Rd(executor_update_Rd),
-        .Rd_value(executor_Rd_value),
+        .clk(clk), .nreset(nreset), .enable(memaccessor_ready),
+        .ready(regfilewriter_ready), .pc(pc), .memaccessor_inst,
+        .update_pc(memaccessor_update_pc),
+        .new_pc(memaccessor_new_pc), .update_Rd(memaccessor_update_Rd),
+        .Rd_value(memaccessor_Rd_value),
         .regfile_write_enable1(regfile_write_enable1),
         .regfile_write_addr1(regfile_write_addr1),
         .regfile_write_value1(regfile_write_value1),
@@ -161,7 +184,9 @@ module cpu(
         // Output to debug port
         debug_port_vector[1*8:5*8-1] = pc;
         debug_port_vector[5*8:6*8-1] = {
-            4'b0, fetcher_ready, decoder_ready, executor_ready, regfilewriter_ready};
+            3'b0, fetcher_ready, decoder_ready, executor_ready,
+            memaccessor_ready, regfilewriter_ready
+        };
         debug_port_vector[6*8:7*8-1] = {4'b0, regfile_read_addr1};
         debug_port_vector[7*8:11*8-1] = regfile_read_value1;
         debug_port_vector[11*8:12*8-1] = {4'b0, regfile_read_addr2};

@@ -30,8 +30,8 @@ async def test_regfile_read(dut):
     # Wait a little bit after clkedge to check immediate values
     await Timer(1, 'us')
 
-    assert dut.regfile_read_value1.value.integer == regfile_init[4]
-    assert dut.regfile_read_value2.value.integer == regfile_init[5]
+    assert dut.regfile_read_value1 == regfile_init[4]
+    assert dut.regfile_read_value2 == regfile_init[5]
     # Test new instruction right away
     dut.regfile_read_inst.setimmediatevalue(int('e08fe004', 16)) # add lr, pc, r4
     dut.regfile_read_addr1.setimmediatevalue(15) # pc
@@ -62,8 +62,8 @@ async def test_regfile_write(dut):
             await clkedge
             # Wait a little bit after clkedge to check immediate values
             await Timer(1, 'us')
-            assert dut.regfile_read_value1.value.integer == expected_regfile[addr]
-            assert dut.regfile_read_value2.value.integer == expected_regfile[addr]
+            assert dut.regfile_read_value1 == expected_regfile[addr]
+            assert dut.regfile_read_value2 == expected_regfile[addr]
 
     async def _write_and_check(new_addr, new_value):
         """Do a quick check of the value written"""
@@ -80,7 +80,7 @@ async def test_regfile_write(dut):
         # Wait a little bit after clkedge to check immediate values
         await Timer(1, 'us')
 
-        assert dut.regfile_read_value1.value.integer == new_value
+        assert dut.regfile_read_value1 == new_value
 
     # Reset
     dut.regfile_nreset <= 0
@@ -118,7 +118,7 @@ async def test_regfile_pc(dut):
     dut._log.info('Reset complete')
 
     # PC should be initialized to zero
-    assert dut.regfile_pc.value.integer == 0
+    assert dut.regfile_pc == 0
 
     # Try setting new value
     dut.regfile_update_pc.setimmediatevalue(1)
@@ -128,7 +128,7 @@ async def test_regfile_pc(dut):
     # Wait a little bit after clkedge to check immediate values
     await Timer(1, 'us')
 
-    assert dut.regfile_pc.value.integer == 42
+    assert dut.regfile_pc == 42
 
     # Stop modifying PC so other tests can reset the PC
     dut.regfile_update_pc.setimmediatevalue(0)
