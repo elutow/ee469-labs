@@ -164,7 +164,7 @@ except IndexError:
 
 # -- Define the Sintesizing Builder
 synth = Builder(
-    action='yosys -p \"read_verilog -sv $SOURCES ; synth_ice40 -abc9 -json $TARGET\" {}'.format(
+    action='yosys -p \"read_verilog -sv -nolatches $SOURCES ; synth_ice40 -abc9 -json $TARGET\" {}'.format(
         '' if VERBOSE_ALL or VERBOSE_YOSYS else '-q'
     ),
     suffix='.json',
