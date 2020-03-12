@@ -19,8 +19,8 @@
 // log base-2 of INST_COUNT
 `define INST_COUNT_L2 6
 // Size of data memory in words
-`define DATA_SIZE 16
-`define DATA_SIZE_L2 4
+`define DATA_SIZE 256
+`define DATA_SIZE_L2 8
 // DEBUG_BYTES Must be power of 2
 `define DEBUG_BYTES 32
 
