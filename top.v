@@ -74,8 +74,6 @@ module top (
   wire uart_rx_strobe;
   wire [7:0] uart_rx_data;
 
-  wire host_presence;
-
   wire usb_p_tx;
   wire usb_n_tx;
   wire usb_tx_en;
@@ -88,7 +86,6 @@ module top (
     .clk_48mhz(clk_48mhz),
     .clk(clk_logic),
     .reset(reset),
-    .host_presence(host_presence),
     .uart_tx_ready(uart_tx_ready),
     .uart_tx_strobe(uart_tx_strobe),
     .uart_tx_data(uart_tx_data),

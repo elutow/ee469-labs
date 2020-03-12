@@ -1,4 +1,3 @@
-
 module usb_serial_ctrl_ep (
   input clk,
   input reset,

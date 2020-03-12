@@ -20,9 +20,7 @@ module usb_serial (
   input uart_tx_strobe,
 
   output [7:0] uart_rx_data,
-  output uart_rx_strobe,
-
-  output host_presence // need to figure this out
+  output uart_rx_strobe
 );
   wire [6:0] dev_addr;
   wire [7:0] out_ep_data;
