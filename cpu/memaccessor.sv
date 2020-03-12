@@ -55,8 +55,8 @@ module memaccessor(
             ready <= 1'b0;
         end
         `ifndef SYNTHESIS
-            // write_enable -> enable (implies operator)
-            assert(!write_enable || enable);
+            // write_enable -> next_ready (implies operator)
+            assert(!write_enable || next_ready);
         `endif // SYNTHESIS
     end // ff
 
@@ -76,12 +76,34 @@ module memaccessor(
         end
     end // ff
 
+    // Validate inputs from executor
+    `ifndef SYNTHESIS
+    always_comb begin
+        if (decode_format(executor_inst) != `FMT_MEMORY) begin
+            // We should never write when we're not a memory instruction
+            assert(!write_enable);
+        end
+        // write_enable imples !executor_update_Rd
+        // Because: STR means enable write, but don't update Rd
+        //          LDR means disable write, update Rd
+        assert(!write_enable || !executor_update_Rd);
+    end // comb
+    `endif // SYNTHESIS
+
     // Determine Rd value
     always_comb begin
         Rd_value = databranch_Rd_value;
         // NOTE: update_Rd can be 1 only if the instruction passes conditions
-        if (enable && update_Rd && decode_format(memaccessor_inst) == `FMT_MEMORY) begin
-            Rd_value = read_value;
+        if (ready && decode_format(memaccessor_inst) == `FMT_MEMORY) begin
+            `ifndef SYNTHESIS
+                assert(decode_mem_is_load(memaccessor_inst) == update_Rd) else begin
+                    $error("Failed is_load (%b) == update_Rd (%b) for inst %h",
+                        decode_mem_is_load(memaccessor_inst), update_Rd,
+                        memaccessor_inst
+                    );
+                end
+            `endif // SYNTHESIS
+            if (update_Rd) Rd_value = read_value;
         end
     end // comb
 endmodule
