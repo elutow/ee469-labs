@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+import argparse
+
 import serial
 import tinyprog
 import usb
@@ -62,6 +64,12 @@ def _write_loop(port):
         yield None
 
 def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        '--verbose', '-v', action='store_true',
+        help='Show debug port bytes in hex from USB serial')
+    args = parser.parse_args()
+
     ports = tinyprog.get_ports(USB_ID)
     print(f'Found {len(ports)} serial port(s)')
     if not ports:
@@ -69,7 +77,7 @@ def main():
     if len(ports) > 1:
         print('NOTE: Using first port')
     port = ports[0]
-    read_loop = _read_loop(port)
+    read_loop = _read_loop(port, verbose=args.verbose)
     # Initialize read loop to accept ch
     next(read_loop)
     write_loop = _write_loop(port)
