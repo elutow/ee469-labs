@@ -210,6 +210,7 @@ module executor(
         output logic [`BIT_WIDTH-1:0] new_pc,
         output logic update_Rd, // Whether we should update Rd (result) in writeback
         output logic [`BIT_WIDTH-1:0] databranch_Rd_value, // Rd for branch and data formats
+        output logic stall_for_pc, // Whether we should stall the pipeline for a PC update
         // memaccessor-specific outputs
         output logic [`BIT_WIDTH-1:0] mem_read_addr,
         output logic mem_write_enable,
@@ -267,7 +268,7 @@ module executor(
     // operation to be done before we set ready == 1
     // So we might as well run all instructions and set values before next clock
     // cycle
-    // Data memory wires/registers
+    // next_mem_* are data memory wires/registers
     logic [`BIT_WIDTH-1:0] next_mem_read_addr;
     logic next_mem_write_enable;
     logic [`BIT_WIDTH-1:0] next_mem_write_addr;
@@ -280,6 +281,7 @@ module executor(
     logic [`BIT_WIDTH-1:0] mem_new_Rn_value, mem_offset;
     logic next_update_pc;
     logic [`BIT_WIDTH-1:0] next_new_pc;
+    logic next_stall_for_pc;
     always_comb begin
         dataproc_operand2 = `BIT_WIDTH'bX;
         // We only set update_Rd = 1 if format is dataproc and operation demands it.
@@ -295,6 +297,7 @@ module executor(
         next_mem_read_addr = `BIT_WIDTH'bX;
         next_mem_write_addr = `BIT_WIDTH'bX;
         next_mem_write_value = `BIT_WIDTH'bX;
+        next_stall_for_pc = 1'b0;
 
         // Whether the instruction condition passes CPSR for execution
         condition_passes = check_condition(
@@ -307,6 +310,7 @@ module executor(
             // * If LDR instruction, Rd is PC
             // * If data format, Rd is PC
             // * Always for branch format (i.e. update_pc == 1)
+            // use next_stall_for_pc
             case (decode_format(next_executor_inst))
                 `FMT_MEMORY: begin
                     mem_offset = compute_mem_offset(next_executor_inst, Rd_Rm_value);
@@ -357,14 +361,16 @@ module executor(
                 end
                 `FMT_BRANCH: begin
                     next_update_pc = 1'b1;
-                    // TODO: When we hit executor, value of pc register will already be (instruction address)+8
-                    next_new_pc = pc + `BIT_WIDTH'd8 + decode_branch_offset(next_executor_inst);
+                    // NOTE: Here decoder is done, which means we are at
+                    // pc = orig_pc + 8, where orig_pc is the PC used to fetch
+                    // the instruction
+                    // This is new_pc = orig_pc + 8 + branch_offset
+                    next_new_pc = pc + decode_branch_offset(next_executor_inst);
                     if (decode_branch_is_link(next_executor_inst)) begin
                         // NOTE: In regfilewriter, we will set the address to
                         // write to the link register
                         next_update_Rd = 1'b1;
-                        // TODO: We should subtract 4 here instead
-                        next_databranch_Rd_value = pc + `BIT_WIDTH'd4;
+                        next_databranch_Rd_value = pc - `BIT_WIDTH'd4; // orig_pc + 4
                     end
                 end
                 default: begin end
@@ -383,6 +389,7 @@ module executor(
             mem_write_enable <= next_mem_write_enable;
             mem_write_addr <= next_mem_write_addr;
             mem_write_value <= next_mem_write_value;
+            stall_for_pc <= next_stall_for_pc;
         end
         else begin
             cpsr <= `CPSR_SIZE'b0;
@@ -394,6 +401,7 @@ module executor(
             mem_write_enable <= 1'b0;
             mem_write_addr <= `BIT_WIDTH'b0;
             mem_write_value <= `BIT_WIDTH'b0;
+            stall_for_pc <= 1'b0;
         end
     end
 endmodule
