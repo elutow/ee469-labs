@@ -1,10 +1,11 @@
 TODO:
 
 Pipelining: Implement bubbles/no-ops and bypasses
+- See Wikipedia for full list of hazards: https://en.wikipedia.org/wiki/Hazard_(computer_architecture)
+- Also see this lecture: https://www3.nd.edu/~mniemier/teaching/2011_B_Fall/lectures/14_PPT_1up.pdf
 - Register values for immediate register read after register write
 - take values from beginning of stages back into beginning of previous stages
     e.g. WB -> Exe, Mem -> Ex
-- bubbles for updating CPSR and delaying next instruction
 - bubbles for branching
     - two options for adding bubbles:
         1. stall decode, fetch

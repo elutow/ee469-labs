@@ -5,6 +5,7 @@
 
 function automatic [`BIT_WIDTH-1:0] fix_pc_read_value;
     // Fix reading PC in multicycle CPU design
+    // TODO: See how this needs to be changed for pipelined design
     input [`BIT_WIDTH-1:0] pc;
     input [`BIT_WIDTH-1:0] inst;
 

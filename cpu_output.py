@@ -64,7 +64,7 @@ def _parse_code_objdump(filename):
 _INST_ASM = _parse_code_objdump('cpu/init/code.objdump')
 
 def _decode_instruction(inst_int):
-    return _INST_ASM.get(inst_int, f'(could not get asm for: {hex(inst_int)}')
+    return _INST_ASM.get(inst_int, f'(could not get asm for: {hex(inst_int)})')
 
 def _parse_ready_flags(ready_flags):
     ready_codes = {

@@ -5,12 +5,6 @@
 
 `include "cpu/constants.svh"
 
-// NOTE: Yosys 0.9 doesn't support enums
-`define CPU_STATE_WIDTH 2
-`define CPU_STATE_RESET `CPU_STATE_WIDTH'd0
-`define CPU_STATE_START `CPU_STATE_WIDTH'd1
-`define CPU_STATE_RUN `CPU_STATE_WIDTH'd2
-
 module cpu(
         input wire clk,
         input wire nreset,
@@ -23,9 +17,6 @@ module cpu(
     // Program Counter
     // NOTE: In pipelined version, we want to update PC here.
     logic [`BIT_WIDTH-1:0] pc;
-
-    // CPU state
-    logic [`CPU_STATE_WIDTH-1:0] ps, ns;
 
     // Turn on LED when reset is not on
     assign led = nreset;
@@ -129,56 +120,8 @@ module cpu(
         .regfile_update_pc(regfile_update_pc)
     );
 
-    // Ensure only one ready signal is asserted at a time
-    `ifndef SYNTHESIS
-    logic [2:0] ready_asserted_count;
-    always_comb begin
-        ready_asserted_count = 3'b0;
-        if (fetcher_ready) ready_asserted_count = ready_asserted_count + 3'b1;
-        if (decoder_ready) ready_asserted_count = ready_asserted_count + 3'b1;
-        if (executor_ready) ready_asserted_count = ready_asserted_count + 3'b1;
-        if (regfilewriter_ready) ready_asserted_count = ready_asserted_count + 3'b1;
-        assert(ready_asserted_count <= 3'b1) else begin
-            $error(
-                "More than one ready signal asserted!: %b",
-                {fetcher_ready, decoder_ready, executor_ready, regfilewriter_ready}
-            );
-        end
-    end
-    `endif // SYNTHESIS
-
-    // CPU FSM
-    always_comb begin
-        ns = ps;
-        case (ps)
-            `CPU_STATE_RESET: begin
-                ns = `CPU_STATE_START;
-            end
-            `CPU_STATE_START: begin
-                ns = `CPU_STATE_RUN;
-            end
-            `CPU_STATE_RUN: begin
-                // no-op
-            end
-            default: begin
-                `ifndef SYNTHESIS
-                    $error("Invalid CPU state: %d", ps);
-                `endif
-            end
-        endcase
-    end // comb
-    always_ff @(posedge clk) begin
-        if (nreset) begin
-            ps <= ns;
-        end
-        else begin
-            ps <= `CPU_STATE_RESET;
-        end
-    end // ff
-    // Two situations to enable fetcher:
-    // - The CPU just started
-    // - Execution is done and PC is updated (regfilewriter_ready is asserted)
-    assign fetcher_enable = (ps == `CPU_STATE_START) || regfilewriter_ready;
+    // TODO: Don't always enable fetcher to deal with pipelining corner cases
+    assign fetcher_enable = 1'b1;
     // Debug port outputs
     always_comb begin
         // Output to debug port
