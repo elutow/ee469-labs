@@ -1,9 +1,6 @@
 `ifndef _CPU_CONSTANTS_SVH_
 `define _CPU_CONSTANTS_SVH_
 
-// NOTE: Yosys currently does not support enums
-// See https://github.com/YosysHQ/yosys/issues/248
-
 // TODO: Consider changing define macros to localparam
 
 // Register & instruction depths

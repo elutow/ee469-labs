@@ -41,25 +41,24 @@ module cpu(
 
     // CPU stages
 
-    logic fetcher_enable;
-    logic fetcher_ready;
+    logic fetcher_enable, fetcher_ready;
     logic [`BIT_WIDTH-1:0] fetcher_inst;
     fetcher the_fetcher(
         .clk, .nreset, .enable(fetcher_enable), .ready(fetcher_ready),
         .pc, .fetcher_inst
     );
 
+    logic decoder_enable, decoder_ready;
     logic [`BIT_WIDTH-1:0] decoder_inst;
     logic [`BIT_WIDTH-1:0] decoder_Rn_value, decoder_Rd_Rm_value;
-    logic decoder_ready;
     decoder the_decoder(
-        .clk, .nreset, .enable(fetcher_ready), .ready(decoder_ready),
+        .clk, .nreset, .enable(decoder_enable), .ready(decoder_ready),
         .fetcher_inst, .decoder_inst, .regfile_read_inst, .regfile_read_addr1,
         .regfile_read_addr2, .regfile_read_value1, .regfile_read_value2,
         .Rn_value(decoder_Rn_value), .Rd_Rm_value(decoder_Rd_Rm_value)
     );
 
-    logic executor_ready;
+    logic executor_enable, executor_ready;
     logic [`BIT_WIDTH-1:0] executor_inst;
     logic executor_update_pc;
     logic [`BIT_WIDTH-1:0] executor_new_pc;
@@ -73,7 +72,7 @@ module cpu(
     logic [`BIT_WIDTH-1:0] mem_write_addr;
     logic [`BIT_WIDTH-1:0] mem_write_value;
     executor the_executor(
-        .clk, .nreset, .enable(decoder_ready), .ready(executor_ready),
+        .clk, .nreset, .enable(executor_enable), .ready(executor_ready),
         .cpsr, .condition_passes, .executor_inst, .stall_for_pc,
         .update_pc(executor_update_pc), .pc, .new_pc(executor_new_pc),
         .update_Rd(executor_update_Rd), .databranch_Rd_value, .mem_read_addr,
@@ -81,14 +80,14 @@ module cpu(
         .Rn_value(decoder_Rn_value), .Rd_Rm_value(decoder_Rd_Rm_value)
     );
 
-    logic memaccessor_ready;
+    logic memaccessor_enable, memaccessor_ready;
     logic [`BIT_WIDTH-1:0] memaccessor_inst;
     logic memaccessor_update_pc;
     logic [`BIT_WIDTH-1:0] memaccessor_new_pc;
     logic memaccessor_update_Rd;
     logic [`BIT_WIDTH-1:0] memaccessor_Rd_value;
     memaccessor the_memaccessor(
-        .clk, .nreset, .enable(executor_ready), .ready(memaccessor_ready),
+        .clk, .nreset, .enable(memaccessor_enable), .ready(memaccessor_ready),
         .executor_inst, .memaccessor_inst,
         .read_addr(mem_read_addr), .write_enable(mem_write_enable),
         .write_addr(mem_write_addr), .write_value(mem_write_value),
@@ -98,9 +97,9 @@ module cpu(
         .Rd_value(memaccessor_Rd_value)
     );
 
-    logic regfilewriter_ready;
+    logic regfilewriter_enable, regfilewriter_ready;
     regfilewriter the_regfilewriter(
-        .clk, .nreset, .enable(memaccessor_ready), .ready(regfilewriter_ready),
+        .clk, .nreset, .enable(regfilewriter_enable), .ready(regfilewriter_ready),
         .pc, .memaccessor_inst, .update_pc(memaccessor_update_pc),
         .new_pc(memaccessor_new_pc), .update_Rd(memaccessor_update_Rd),
         .Rd_value(memaccessor_Rd_value), .regfile_write_enable1,
@@ -109,8 +108,44 @@ module cpu(
     );
 
     // CPU FSM to control pipelining
-    // TODO: Don't always enable fetcher to deal with pipelining corner cases
-    assign fetcher_enable = 1'b1;
+    enum { RUNNING, PC_STALL } ps, ns;
+    always_comb begin
+        fetcher_enable = nreset;
+        decoder_enable = fetcher_ready;
+        executor_enable = decoder_ready;
+        memaccessor_enable = executor_ready;
+        regfilewriter_enable = memaccessor_ready;
+        case (ps)
+            RUNNING: begin
+                ns = RUNNING;
+                if (stall_for_pc) begin
+                    ns = PC_STALL;
+                    fetcher_enable = 1'b0;
+                    decoder_enable = 1'b0;
+                    executor_enable = 1'b0;
+                end
+            end
+            PC_STALL: begin // Stall for PC update
+                `ifndef SYNTHESIS
+                    assert(!stall_for_pc); // Stall signal should be asserted once only
+                    assert(!executor_ready);
+                    assert(memaccessor_ready);
+                `endif
+                fetcher_enable = 1'b0;
+                decoder_enable = 1'b0;
+                executor_enable = 1'b0;
+                ns = RUNNING; // By next clock cycle, regfilewriter should be done
+            end
+        endcase
+    end // comb
+    always_ff @(posedge clk) begin
+        if (nreset) begin
+            ps <= ns;
+        end
+        else begin
+            ps <= RUNNING;
+        end
+    end
 
     // Debug port outputs
     always_comb begin

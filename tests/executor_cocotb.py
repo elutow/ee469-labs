@@ -3,7 +3,7 @@ import random
 import cocotb
 from cocotb.triggers import Timer
 
-from _tests_common import init_posedge_clk, read_regfile_init
+from _tests_common import assert_eq, init_posedge_clk, read_regfile_init
 
 @cocotb.test()
 async def test_executor_memory(dut):
@@ -29,6 +29,7 @@ async def test_executor_memory(dut):
     await Timer(1, 'us')
     assert dut.executor_ready.value.integer
     assert dut.executor_update_Rd.value.integer
+    assert not dut.executor_stall_for_pc.value.integer
     assert not dut.executor_mem_write_enable.value.integer
     assert dut.executor_mem_read_addr == Rn_value+(Rd_Rm_value>>5)
 
@@ -44,6 +45,7 @@ async def test_executor_memory(dut):
     await Timer(1, 'us')
     # STR should not update Rd
     assert not dut.executor_update_Rd.value.integer
+    assert not dut.executor_stall_for_pc.value.integer
     assert dut.executor_mem_write_enable.value.integer
     assert dut.executor_mem_write_addr == Rn_value
     assert dut.executor_mem_write_value == Rd_Rm_value
@@ -78,6 +80,7 @@ async def test_executor_data(dut):
     await Timer(1, 'us')
     assert dut.executor_ready.value.integer
     assert dut.executor_update_Rd.value.integer
+    assert not dut.executor_stall_for_pc.value.integer
     assert dut.executor_databranch_Rd_value == Rn_value + Rd_Rm_value
 
     # Test conditional execution
@@ -94,6 +97,7 @@ async def test_executor_data(dut):
     await Timer(1, 'us')
     assert dut.executor_ready.value.integer
     assert not dut.executor_update_Rd.value.integer
+    assert not dut.executor_stall_for_pc.value.integer
 
     # Test non-execution
     dut.executor_decoder_inst <= int('13a0e000', 16) # movne lr, #0
@@ -103,6 +107,7 @@ async def test_executor_data(dut):
     await Timer(1, 'us')
     assert dut.executor_ready.value.integer
     assert not dut.executor_update_Rd.value.integer
+    assert not dut.executor_stall_for_pc.value.integer
 
     # Test execution
     dut.executor_decoder_inst <= int('01a0f00e', 16) # moveq pc, lr
@@ -115,6 +120,7 @@ async def test_executor_data(dut):
     assert dut.executor_ready.value.integer
     assert dut.executor_update_Rd.value.integer
     assert dut.executor_databranch_Rd_value == Rd_Rm_value
+    assert dut.executor_stall_for_pc.value.integer
 
     # Reset dut to initial state
     dut.executor_enable.setimmediatevalue(0)
@@ -127,6 +133,9 @@ async def test_executor_branch(dut):
 
     init_regfile = read_regfile_init()
 
+    # Need to add PC offset when setting executor_pc due to pipelining
+    executor_pc_offset = 8
+
     # Reset and enable
     dut.executor_nreset <= 0
     await clkedge
@@ -136,29 +145,31 @@ async def test_executor_branch(dut):
     # Test regular branch
     dut.executor_decoder_inst <= int('eafffffa', 16) # b 0x68 (relative to 0x78)
     pc_init = 20
-    dut.executor_pc <= pc_init
+    dut.executor_pc <= pc_init + executor_pc_offset
     await clkedge
     # We need to wait a little since the values just became available
     # at the last clkedge
     await Timer(1, 'us')
     assert dut.executor_ready.value.integer
     assert not dut.executor_update_Rd.value.integer
+    assert dut.executor_stall_for_pc.value.integer
     assert dut.executor_update_pc.value.integer
-    assert dut.executor_new_pc == pc_init + (0x68 - 0x78)
+    assert_eq(dut.executor_new_pc, pc_init + (0x68 - 0x78))
 
     # Test branch with link
     dut.executor_decoder_inst <= int('ebfffffb', 16) # bl 0x68 (relative to 0x74)
     pc_init = 16
-    dut.executor_pc <= pc_init
+    dut.executor_pc <= pc_init + executor_pc_offset
     await clkedge
     # We need to wait a little since the values just became available
     # at the last clkedge
     await Timer(1, 'us')
     assert dut.executor_ready.value.integer
     assert dut.executor_update_Rd.value.integer
+    assert dut.executor_stall_for_pc.value.integer
     assert dut.executor_databranch_Rd_value == pc_init + 4
     assert dut.executor_update_pc.value.integer
-    assert dut.executor_new_pc == pc_init + (0x68 - 0x74)
+    assert_eq(dut.executor_new_pc, pc_init + (0x68 - 0x74))
 
     # Reset dut to initial state
     dut.executor_enable.setimmediatevalue(0)

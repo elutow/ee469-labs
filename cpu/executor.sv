@@ -268,11 +268,6 @@ module executor(
     // operation to be done before we set ready == 1
     // So we might as well run all instructions and set values before next clock
     // cycle
-    // next_mem_* are data memory wires/registers
-    logic [`BIT_WIDTH-1:0] next_mem_read_addr;
-    logic next_mem_write_enable;
-    logic [`BIT_WIDTH-1:0] next_mem_write_addr;
-    logic [`BIT_WIDTH-1:0] next_mem_write_value;
     // Whether to store the dataproc instruction result in Rd
     logic [`BIT_WIDTH-1:0] dataproc_operand2;
     logic [`BIT_WIDTH-1:0] dataproc_result;
@@ -282,6 +277,11 @@ module executor(
     logic next_update_pc;
     logic [`BIT_WIDTH-1:0] next_new_pc;
     logic next_stall_for_pc;
+    // next_mem_* are data memory wires/registers
+    logic [`BIT_WIDTH-1:0] next_mem_read_addr;
+    logic next_mem_write_enable;
+    logic [`BIT_WIDTH-1:0] next_mem_write_addr;
+    logic [`BIT_WIDTH-1:0] next_mem_write_value;
     always_comb begin
         dataproc_operand2 = `BIT_WIDTH'bX;
         // We only set update_Rd = 1 if format is dataproc and operation demands it.
@@ -293,11 +293,11 @@ module executor(
         next_cpsr = cpsr;
         mem_new_Rn_value = `BIT_WIDTH'bX;
         mem_offset = `BIT_WIDTH'bX;
+        next_stall_for_pc = 1'b0;
         next_mem_write_enable = 1'b0;
         next_mem_read_addr = `BIT_WIDTH'bX;
         next_mem_write_addr = `BIT_WIDTH'bX;
         next_mem_write_value = `BIT_WIDTH'bX;
-        next_stall_for_pc = 1'b0;
 
         // Whether the instruction condition passes CPSR for execution
         condition_passes = check_condition(
@@ -329,6 +329,9 @@ module executor(
                         // LDR
                         next_mem_read_addr = mem_new_Rn_value;
                         next_update_Rd = 1'b1;
+                        if (decode_Rd(next_executor_inst) == `REG_PC_INDEX) begin
+                            next_stall_for_pc = 1'b1;
+                        end
                     end
                     else begin
                         // STR
@@ -358,8 +361,12 @@ module executor(
                             decode_dataproc_opcode(next_executor_inst)
                         );
                     end
+                    if (decode_Rd(next_executor_inst) == `REG_PC_INDEX) begin
+                        next_stall_for_pc = 1'b1;
+                    end
                 end
                 `FMT_BRANCH: begin
+                    next_stall_for_pc = 1'b1;
                     next_update_pc = 1'b1;
                     // NOTE: Here decoder is done, which means we are at
                     // pc = orig_pc + 8, where orig_pc is the PC used to fetch
