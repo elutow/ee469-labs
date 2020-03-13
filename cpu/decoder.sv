@@ -186,6 +186,21 @@ function automatic [`BIT_WIDTH-1:0] decode_branch_offset;
     decode_branch_offset = {{6{inst[23]}}, inst[23:0], 2'b0};
 endfunction
 
+function automatic [`BIT_WIDTH-1:0] fix_operand2_pc_read_value;
+    // Fix reading PC in pipelined CPU design for operand2
+    // This should be run after decoder is ready; i.e. pc = orig_pc+8
+    // where orig_pc is the PC used to fetch inst
+    input [`BIT_WIDTH-1:0] pc;
+    input [`BIT_WIDTH-1:0] inst;
+
+    fix_operand2_pc_read_value = pc; // orig_pc+8
+    if (decode_format(inst) == `FMT_DATA) begin
+        if (!decode_dataproc_operand2_is_immediate(inst)) begin
+            fix_operand2_pc_read_value = pc + `BIT_WIDTH'd4; // orig_pc+12
+        end
+    end
+endfunction
+
 module decoder(
 		input wire clk,
 		input wire nreset,
@@ -229,8 +244,21 @@ module decoder(
 	end // ff
 
 	// Datapath logic
-	assign Rn_value = regfile_read_value1;
-	assign Rd_Rm_value = regfile_read_value2;
+    // Read regfile read data and fix PC values
+    // NOTE: These addresses can be Xs, but that doesn't matter since later
+    // stages will read these values if the instruction uses them.
+    logic [`REG_COUNT_L2-1:0] prev_regfile_read_addr1, prev_regfile_read_addr2;
+    always_ff @(posedge clk) begin
+        prev_regfile_read_addr1 <= regfile_read_addr1;
+        prev_regfile_read_addr2 <= regfile_read_addr2;
+    end
+    always_comb begin
+        Rn_value = regfile_read_value1; // If this is pc, then it is already orig_pc+8
+        Rd_Rm_value = regfile_read_value2;
+        if (prev_regfile_read_addr2 == `REG_PC_INDEX) begin
+            Rd_Rm_value = fix_operand2_pc_read_value(regfile_read_value2, decoder_inst);
+        end
+    end // comb
 	// Determine instruction to output from decoder
 	logic [`BIT_WIDTH-1:0] next_decoder_inst;
 	always_comb begin

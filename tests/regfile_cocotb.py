@@ -41,9 +41,8 @@ async def test_regfile_read(dut):
     # Wait a little bit after clkedge to check immediate values
     await Timer(1, 'us')
 
-    # Since we didn't increment PC, and operand2 is not an immediate,
-    # we should get pc + 12 = 0 + 12 = 12
-    assert dut.regfile_read_value1 == 12
+    # PC should be read directly out, which is zero
+    assert dut.regfile_read_value1 == 0
     assert dut.regfile_read_value2 == regfile_init[4]
 
 @cocotb.test()

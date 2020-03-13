@@ -61,5 +61,37 @@ async def test_decoder_regfile(dut):
     assert dut.decoder_regfile_read_addr1 == 8
     assert dut.decoder_regfile_read_addr2 == 9
 
+    # Test PC read
+    dut.decoder_fetcher_inst.setimmediatevalue(int('e08fe004', 16)) # add lr, pc, r4
+    # Make immediates take effect
+    await Timer(1, 'us')
+    assert dut.decoder_regfile_read_addr1 == 15 # pc
+    assert dut.decoder_regfile_read_addr2 == 4 # r4
+    # Test that PC is not modified since Rn is PC
+    # Need to await clkedge to simulate regfile read
+    await clkedge
+    dut.decoder_regfile_read_value1.setimmediatevalue(42)
+    dut.decoder_regfile_read_value2.setimmediatevalue(24)
+    # Make immediates take effect
+    await Timer(1, 'us')
+    assert dut.decoder_Rn_value == 42
+    assert dut.decoder_Rd_Rm_value == 24
+
+    # Test PC read with fix for operand2 pc value
+    dut.decoder_fetcher_inst.setimmediatevalue(int('e084e00f', 16)) # add lr, r4, pc
+    # Make immediates take effect
+    await Timer(1, 'us')
+    assert dut.decoder_regfile_read_addr1 == 4 # r4
+    assert dut.decoder_regfile_read_addr2 == 15 # pc
+    # Test that PC is not modified since Rn is PC
+    # Need to await clkedge to simulate regfile read
+    await clkedge
+    dut.decoder_regfile_read_value1.setimmediatevalue(24)
+    dut.decoder_regfile_read_value2.setimmediatevalue(42) # orig_pc + 8
+    # Make immediates take effect
+    await Timer(1, 'us')
+    assert dut.decoder_Rn_value == 24
+    assert dut.decoder_Rd_Rm_value == 42 + 4 # orig_pc + 12 = (orig_pc + 8) + 4
+
     # Reset dut to initial state
     dut.decoder_enable.setimmediatevalue(0)

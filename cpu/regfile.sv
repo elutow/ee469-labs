@@ -3,20 +3,6 @@
 
 `include "cpu/constants.svh"
 
-function automatic [`BIT_WIDTH-1:0] fix_pc_read_value;
-    // Fix reading PC in multicycle CPU design
-    // TODO: See how this needs to be changed for pipelined design
-    input [`BIT_WIDTH-1:0] pc;
-    input [`BIT_WIDTH-1:0] inst;
-
-    fix_pc_read_value = pc + `BIT_WIDTH'd8;
-    if (decode_format(inst) == `FMT_DATA) begin
-        if (!decode_dataproc_operand2_is_immediate(inst)) begin
-            fix_pc_read_value = pc + `BIT_WIDTH'd12;
-        end
-    end
-endfunction
-
 module regfile(
         input wire clk,
         input wire nreset,
@@ -48,14 +34,16 @@ module regfile(
 
     always_comb begin
         // Condition reads against PC
+        // The modules reading from regfile via the read ports (currently decoder)
+        // should fix the PC values themselves to conform to ARM spec
         if (prev_read_addr1 == `REG_PC_INDEX) begin
-            read_value1 = fix_pc_read_value(pc, prev_read_inst);
+            read_value1 = pc;
         end
         else begin
             read_value1 = register_file[prev_read_addr1];
         end
         if (prev_read_addr2 == `REG_PC_INDEX) begin
-            read_value2 = fix_pc_read_value(pc, prev_read_inst);
+            read_value2 = pc;
         end
         else begin
             read_value2 = register_file[prev_read_addr2];
