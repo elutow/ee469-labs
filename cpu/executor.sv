@@ -210,7 +210,7 @@ module executor(
         output logic [`BIT_WIDTH-1:0] new_pc,
         output logic update_Rd, // Whether we should update Rd (result) in writeback
         output logic [`BIT_WIDTH-1:0] databranch_Rd_value, // Rd for branch and data formats
-        output logic stall_for_pc, // Whether we should stall the pipeline for a PC update
+        output logic flush_for_pc, // Whether we should flush the pipeline for a PC update
         // memaccessor-specific outputs
         output logic [`BIT_WIDTH-1:0] mem_read_addr,
         output logic mem_write_enable,
@@ -218,8 +218,8 @@ module executor(
         output logic [`BIT_WIDTH-1:0] mem_write_value,
         // Datapath signals from decoder
         input logic [`BIT_WIDTH-1:0] decoder_inst,
-        input logic [`BIT_WIDTH-1:0] Rn_value, // First operand
-        input logic [`BIT_WIDTH-1:0] Rd_Rm_value // Rd for STR, otherwise Rm
+        input logic [`BIT_WIDTH-1:0] decoder_Rn_value, // First operand
+        input logic [`BIT_WIDTH-1:0] decoder_Rd_Rm_value // Rd for STR, otherwise Rm
     );
 
     // Currnet Program Status Register (CPSR)
@@ -249,12 +249,8 @@ module executor(
     // Datapath logic
     // Determine instruction to output from executor
     logic [`BIT_WIDTH-1:0] next_executor_inst;
-    always_comb begin
-        next_executor_inst = executor_inst;
-        if (next_ready) begin
-            next_executor_inst = decoder_inst;
-        end
-    end
+    // We don't save decoder_inst because we don't persist our output while not ready
+    assign next_executor_inst = decoder_inst;
     always_ff @(posedge clk) begin
         if (nreset) begin
             executor_inst <= next_executor_inst;
@@ -276,7 +272,13 @@ module executor(
     logic [`BIT_WIDTH-1:0] mem_new_Rn_value, mem_offset;
     logic next_update_pc;
     logic [`BIT_WIDTH-1:0] next_new_pc;
-    logic next_stall_for_pc;
+    logic next_flush_for_pc;
+    // For resolving data hazards
+    logic [`BIT_WIDTH-1:0] Rn_value; // First operand
+    logic [`BIT_WIDTH-1:0] Rd_Rm_value; // Rd for STR, otherwise Rm
+    // Forwarding from instruction that finished executing
+    logic has_databranch_Rd_value, next_has_databranch_Rd_value;
+    logic [`REG_COUNT_L2-1:0] databranch_Rd_addr, next_databranch_Rd_addr;
     // next_mem_* are data memory wires/registers
     logic [`BIT_WIDTH-1:0] next_mem_read_addr;
     logic next_mem_write_enable;
@@ -293,7 +295,11 @@ module executor(
         next_cpsr = cpsr;
         mem_new_Rn_value = `BIT_WIDTH'bX;
         mem_offset = `BIT_WIDTH'bX;
-        next_stall_for_pc = 1'b0;
+        next_flush_for_pc = 1'b0;
+        Rn_value = decoder_Rn_value;
+        Rd_Rm_value = decoder_Rd_Rm_value;
+        next_has_databranch_Rd_value = 1'b0;
+        next_databranch_Rd_addr = `REG_COUNT_L2'bX;
         next_mem_write_enable = 1'b0;
         next_mem_read_addr = `BIT_WIDTH'bX;
         next_mem_write_addr = `BIT_WIDTH'bX;
@@ -305,14 +311,29 @@ module executor(
             decode_condition(next_executor_inst)
         );
         if (next_ready && condition_passes) begin
-            // TODO: Add a new flag to indicate whether we need to stall the pipeline
-            // in the cpu module. Must be 1 when:
-            // * If LDR instruction, Rd is PC
-            // * If data format, Rd is PC
-            // * Always for branch format (i.e. update_pc == 1)
-            // use next_stall_for_pc
+            // Execute instruction
             case (decode_format(next_executor_inst))
                 `FMT_MEMORY: begin
+                    // Forwarding from instruction that finished executing
+                    if (has_databranch_Rd_value) begin
+                        if (decode_mem_is_load(next_executor_inst)) begin
+                            // LDR may use register offset
+                            if (!decode_mem_offset_is_immediate(next_executor_inst)) begin
+                                if (decode_Rm(next_executor_inst) == databranch_Rd_addr) begin
+                                    Rd_Rm_value = databranch_Rd_value;
+                                end
+                            end
+                        end
+                        else begin
+                            // STR, which cannot use register offsets
+                            if (decode_Rd(next_executor_inst) == databranch_Rd_addr) begin
+                                Rd_Rm_value = databranch_Rd_value;
+                            end
+                        end
+                        if (decode_Rn(next_executor_inst) == databranch_Rd_addr) begin
+                            Rn_value = databranch_Rd_value;
+                        end
+                    end
                     mem_offset = compute_mem_offset(next_executor_inst, Rd_Rm_value);
                     mem_new_Rn_value = Rn_value + mem_offset;
 
@@ -327,10 +348,12 @@ module executor(
                     `endif
                     if (decode_mem_is_load(next_executor_inst)) begin
                         // LDR
+                        // TODO: Add register to store Rd address so we can check if we need to add bubble for next instruction
+                        // but only if we are not flushing the PC
                         next_mem_read_addr = mem_new_Rn_value;
                         next_update_Rd = 1'b1;
                         if (decode_Rd(next_executor_inst) == `REG_PC_INDEX) begin
-                            next_stall_for_pc = 1'b1;
+                            next_flush_for_pc = 1'b1;
                         end
                     end
                     else begin
@@ -347,6 +370,17 @@ module executor(
                     end
                 end
                 `FMT_DATA: begin
+                    // Forwarding from instruction that finished executing
+                    if (has_databranch_Rd_value) begin
+                        if (!decode_dataproc_operand2_is_immediate(next_executor_inst)) begin
+                            if (decode_Rm(next_executor_inst) == databranch_Rd_addr) begin
+                                Rd_Rm_value = databranch_Rd_value;
+                            end
+                        end
+                        if (decode_Rn(next_executor_inst) == databranch_Rd_addr) begin
+                            Rn_value = databranch_Rd_value;
+                        end
+                    end
                     dataproc_operand2 = compute_dataproc_operand2(next_executor_inst, Rd_Rm_value);
                     {next_update_Rd, dataproc_result} = run_dataproc_operation(
                         decode_dataproc_opcode(next_executor_inst),
@@ -362,11 +396,19 @@ module executor(
                         );
                     end
                     if (decode_Rd(next_executor_inst) == `REG_PC_INDEX) begin
-                        next_stall_for_pc = 1'b1;
+                        next_flush_for_pc = 1'b1;
+                    end
+                    else begin
+                        // We only need to do forwarding of executor result when
+                        // we are not flushing the pipeline because this specific
+                        // forwarding is only applicable when the next instruction
+                        // can be executed.
+                        next_has_databranch_Rd_value = next_update_Rd;
+                        next_databranch_Rd_addr = decode_Rd(next_executor_inst);
                     end
                 end
                 `FMT_BRANCH: begin
-                    next_stall_for_pc = 1'b1;
+                    next_flush_for_pc = 1'b1;
                     next_update_pc = 1'b1;
                     // NOTE: Here decoder is done, which means we are at
                     // pc = orig_pc + 8, where orig_pc is the PC used to fetch
@@ -382,6 +424,8 @@ module executor(
                 end
                 default: begin end
             endcase
+            // We should never forward executor result when we are flushing
+            assert(!next_has_databranch_Rd_value || !next_flush_for_pc);
         end
     end // comb
     // Executor register updates
@@ -392,11 +436,13 @@ module executor(
             databranch_Rd_value <= next_databranch_Rd_value;
             update_pc <= next_update_pc;
             new_pc <= next_new_pc;
+            flush_for_pc <= next_flush_for_pc;
+            has_databranch_Rd_value <= next_has_databranch_Rd_value;
+            databranch_Rd_addr <= next_databranch_Rd_addr;
             mem_read_addr <= next_mem_read_addr;
             mem_write_enable <= next_mem_write_enable;
             mem_write_addr <= next_mem_write_addr;
             mem_write_value <= next_mem_write_value;
-            stall_for_pc <= next_stall_for_pc;
         end
         else begin
             cpsr <= `CPSR_SIZE'b0;
@@ -404,11 +450,13 @@ module executor(
             databranch_Rd_value <= `BIT_WIDTH'b0;
             update_pc <= 1'b0;
             new_pc <= `BIT_WIDTH'b0;
+            flush_for_pc <= 1'b0;
+            has_databranch_Rd_value <= 1'b0;
+            databranch_Rd_addr <= `REG_COUNT_L2'b0;
             mem_read_addr <= `BIT_WIDTH'b0;
             mem_write_enable <= 1'b0;
             mem_write_addr <= `BIT_WIDTH'b0;
             mem_write_value <= `BIT_WIDTH'b0;
-            stall_for_pc <= 1'b0;
         end
     end
 endmodule

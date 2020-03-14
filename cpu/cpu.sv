@@ -66,18 +66,18 @@ module cpu(
     logic [`BIT_WIDTH-1:0] databranch_Rd_value;
     logic [`CPSR_SIZE-1:0] cpsr;
     logic condition_passes;
-    logic stall_for_pc;
+    logic flush_for_pc;
     logic [`BIT_WIDTH-1:0] mem_read_addr;
     logic mem_write_enable;
     logic [`BIT_WIDTH-1:0] mem_write_addr;
     logic [`BIT_WIDTH-1:0] mem_write_value;
     executor the_executor(
         .clk, .nreset, .enable(executor_enable), .ready(executor_ready),
-        .cpsr, .condition_passes, .executor_inst, .stall_for_pc,
+        .cpsr, .condition_passes, .executor_inst, .flush_for_pc,
         .update_pc(executor_update_pc), .pc, .new_pc(executor_new_pc),
         .update_Rd(executor_update_Rd), .databranch_Rd_value, .mem_read_addr,
         .mem_write_enable, .mem_write_addr, .mem_write_value, .decoder_inst,
-        .Rn_value(decoder_Rn_value), .Rd_Rm_value(decoder_Rd_Rm_value)
+        .decoder_Rn_value, .decoder_Rd_Rm_value
     );
 
     logic memaccessor_enable, memaccessor_ready;
@@ -108,7 +108,7 @@ module cpu(
     );
 
     // CPU FSM to control pipelining
-    enum { RUNNING, PC_STALL } ps, ns;
+    enum { RUNNING, PC_FLUSH } ps, ns;
     always_comb begin
         fetcher_enable = nreset;
         decoder_enable = fetcher_ready;
@@ -118,16 +118,16 @@ module cpu(
         case (ps)
             RUNNING: begin
                 ns = RUNNING;
-                if (stall_for_pc) begin
-                    ns = PC_STALL;
+                if (flush_for_pc) begin
+                    ns = PC_FLUSH;
                     fetcher_enable = 1'b0;
                     decoder_enable = 1'b0;
                     executor_enable = 1'b0;
                 end
             end
-            PC_STALL: begin // Stall for PC update
+            PC_FLUSH: begin // Flush stages before executor for PC update
                 `ifndef SYNTHESIS
-                    assert(!stall_for_pc); // Stall signal should be asserted once only
+                    assert(!flush_for_pc); // Flush signal should be asserted once only
                     assert(!executor_ready);
                     assert(memaccessor_ready);
                 `endif
