@@ -195,11 +195,13 @@ async def test_executor_executor_forward(dut):
     dut.executor_nreset <= 1
     dut.executor_enable <= 1
 
-    dut.executor_decoder_inst <= 0xe1a05004 # mov r5, r4
     Rd_Rm_value = 0xdeadbeef # r4
+
+    # Try mov, then str (memory forwarding)
+
+    dut.executor_decoder_inst <= 0xe1a05004 # mov r5, r4
     dut.executor_decoder_Rn_value <= 42 # unused
     dut.executor_decoder_Rd_Rm_value <= Rd_Rm_value
-
     await clkedge
     # We need to wait a little since the values just became available
     # at the last clkedge
@@ -207,7 +209,7 @@ async def test_executor_executor_forward(dut):
     assert dut.executor_ready.value.integer
     assert dut.executor_update_Rd.value.integer
     assert not dut.executor_flush_for_pc.value.integer
-    assert dut.executor_databranch_Rd_value == Rd_Rm_value
+    assert_eq(dut.executor_databranch_Rd_value, Rd_Rm_value)
     assert not dut.executor_update_pc.value.integer
 
     dut.executor_decoder_inst <= 0xe5885000 # str r5, [r8]
@@ -215,7 +217,6 @@ async def test_executor_executor_forward(dut):
     Rn_value = 1 # r8
     dut.executor_decoder_Rn_value <= Rn_value
     dut.executor_decoder_Rd_Rm_value <= Rd_Rm_value_unused
-
     await clkedge
     await Timer(1, 'us')
     assert dut.executor_ready.value.integer
@@ -224,3 +225,112 @@ async def test_executor_executor_forward(dut):
     assert not dut.executor_update_pc.value.integer
     assert dut.executor_mem_write_enable.value.integer
     assert_eq(dut.executor_mem_write_value, Rd_Rm_value)
+
+    # Try mov r5, r4, then mov r4, r5 (data forwarding)
+
+    dut.executor_decoder_inst <= 0xe1a05004 # mov r5, r4
+    dut.executor_decoder_Rn_value <= 42 # unused
+    dut.executor_decoder_Rd_Rm_value <= Rd_Rm_value
+    await clkedge
+    # We need to wait a little since the values just became available
+    # at the last clkedge
+    await Timer(1, 'us')
+    assert dut.executor_ready.value.integer
+    assert dut.executor_update_Rd.value.integer
+    assert not dut.executor_flush_for_pc.value.integer
+    assert_eq(dut.executor_databranch_Rd_value, Rd_Rm_value)
+    assert not dut.executor_update_pc.value.integer
+
+    dut.executor_decoder_inst <= 0xe1a04005 # mov r4, r5
+    Rd_Rm_value_unused = 0xbabafafa # r5, should not be used
+    dut.executor_decoder_Rn_value <= 42 # unused
+    dut.executor_decoder_Rd_Rm_value <= Rd_Rm_value_unused
+    await clkedge
+    await Timer(1, 'us')
+    assert dut.executor_ready.value.integer
+    assert dut.executor_update_Rd.value.integer
+    assert not dut.executor_flush_for_pc.value.integer
+    assert not dut.executor_update_pc.value.integer
+    assert not dut.executor_mem_write_enable.value.integer
+    assert_eq(dut.executor_databranch_Rd_value, Rd_Rm_value)
+
+@cocotb.test()
+async def test_executor_memaccessor_forward(dut):
+    """Test executor's data forwarding from memaccessor"""
+
+    clkedge = init_posedge_clk(dut.executor_clk)
+
+    # Need to add PC offset when setting executor_pc due to pipelining
+    executor_pc_offset = 8
+
+    # Reset and enable
+    dut.executor_nreset <= 0
+    await clkedge
+    dut.executor_nreset <= 1
+    dut.executor_enable <= 1
+
+    # Steps:
+    # 1. Override r4 value in "mov r5, r4"
+    # 2. Use executor forwarding to move r5 value from "mov r5, r4" to "str r5, [r8]"
+
+    Rd_Rm_value_unused = 0xdeadbeef # r4, should not be used in STR below
+    Rd_Rm_value = 0xbabafafa # r4
+
+    dut.executor_decoder_inst <= 0xe1a05004 # mov r5, r4
+    dut.executor_decoder_Rn_value <= 42 # unused
+    dut.executor_decoder_Rd_Rm_value <= Rd_Rm_value_unused
+    dut.executor_memaccessor_fwd_has_Rd <= 1
+    dut.executor_memaccessor_fwd_Rd_addr <= 4 # r4
+    dut.executor_memaccessor_fwd_Rd_value <= Rd_Rm_value
+    await clkedge
+    # We need to wait a little since the values just became available
+    # at the last clkedge
+    await Timer(1, 'us')
+    assert dut.executor_ready.value.integer
+    assert dut.executor_update_Rd.value.integer
+    assert not dut.executor_flush_for_pc.value.integer
+    assert_eq(dut.executor_databranch_Rd_value, Rd_Rm_value)
+    assert not dut.executor_update_pc.value.integer
+
+    dut.executor_decoder_inst <= 0xe5885000 # str r5, [r8]
+    Rn_value = 1 # r8
+    dut.executor_decoder_Rn_value <= Rn_value
+    dut.executor_decoder_Rd_Rm_value <= Rd_Rm_value_unused
+    await clkedge
+    await Timer(1, 'us')
+    assert dut.executor_ready.value.integer
+    assert not dut.executor_update_Rd.value.integer
+    assert not dut.executor_flush_for_pc.value.integer
+    assert not dut.executor_update_pc.value.integer
+    assert dut.executor_mem_write_enable.value.integer
+    assert_eq(dut.executor_mem_write_value, Rd_Rm_value)
+
+    # Repeat same as above, but replace STR with "mov r4, r5"
+
+    dut.executor_decoder_inst <= 0xe1a05004 # mov r5, r4
+    dut.executor_decoder_Rn_value <= 42 # unused
+    dut.executor_decoder_Rd_Rm_value <= Rd_Rm_value_unused
+    dut.executor_memaccessor_fwd_has_Rd <= 1
+    dut.executor_memaccessor_fwd_Rd_addr <= 4 # r4
+    dut.executor_memaccessor_fwd_Rd_value <= Rd_Rm_value
+    await clkedge
+    # We need to wait a little since the values just became available
+    # at the last clkedge
+    await Timer(1, 'us')
+    assert dut.executor_ready.value.integer
+    assert dut.executor_update_Rd.value.integer
+    assert not dut.executor_flush_for_pc.value.integer
+    assert_eq(dut.executor_databranch_Rd_value, Rd_Rm_value)
+    assert not dut.executor_update_pc.value.integer
+
+    dut.executor_decoder_inst <= 0xe1a04005 # mov r4, r5
+    dut.executor_decoder_Rn_value <= 42 # unused
+    dut.executor_decoder_Rd_Rm_value <= Rd_Rm_value_unused
+    await clkedge
+    await Timer(1, 'us')
+    assert dut.executor_ready.value.integer
+    assert dut.executor_update_Rd.value.integer
+    assert not dut.executor_flush_for_pc.value.integer
+    assert not dut.executor_update_pc.value.integer
+    assert not dut.executor_mem_write_enable.value.integer
+    assert_eq(dut.executor_databranch_Rd_value, Rd_Rm_value)

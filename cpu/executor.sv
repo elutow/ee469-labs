@@ -194,6 +194,67 @@ function automatic check_condition;
     check_condition = condition;
 endfunction
 
+function automatic [2*`BIT_WIDTH-1:0] compute_memory_forwarding;
+    // Determine whether we should use the forwarded values
+    input logic [`BIT_WIDTH-1:0] inst;
+    input logic [`REG_COUNT_L2-1:0] fwd_Rd_addr;
+    input logic [`BIT_WIDTH-1:0] fwd_Rd_value;
+    input logic [`BIT_WIDTH-1:0] default_Rn_value;
+    input logic [`BIT_WIDTH-1:0] default_Rd_Rm_value;
+
+    logic [`BIT_WIDTH-1:0] Rn_value; // First operand
+    logic [`BIT_WIDTH-1:0] Rd_Rm_value; // Rd for STR, otherwise Rm
+
+    Rn_value = default_Rn_value;
+    Rd_Rm_value = default_Rd_Rm_value;
+
+    if (decode_mem_is_load(inst)) begin
+        // LDR may use register offset
+        if (!decode_mem_offset_is_immediate(inst)) begin
+            if (decode_Rm(inst) == fwd_Rd_addr) begin
+                Rd_Rm_value = fwd_Rd_value;
+            end
+        end
+    end
+    else begin
+        // STR, which cannot use register offsets
+        if (decode_Rd(inst) == fwd_Rd_addr) begin
+            Rd_Rm_value = fwd_Rd_value;
+        end
+    end
+    if (decode_Rn(inst) == fwd_Rd_addr) begin
+        Rn_value = fwd_Rd_value;
+    end
+
+    compute_memory_forwarding = {Rn_value, Rd_Rm_value};
+endfunction
+
+function automatic [2*`BIT_WIDTH-1:0] compute_data_forwarding;
+    // Determine whether we should use the forwarded values
+    input logic [`BIT_WIDTH-1:0] inst;
+    input logic [`REG_COUNT_L2-1:0] fwd_Rd_addr;
+    input logic [`BIT_WIDTH-1:0] fwd_Rd_value;
+    input logic [`BIT_WIDTH-1:0] default_Rn_value;
+    input logic [`BIT_WIDTH-1:0] default_Rd_Rm_value;
+
+    logic [`BIT_WIDTH-1:0] Rn_value; // First operand
+    logic [`BIT_WIDTH-1:0] Rd_Rm_value; // Rd for STR, otherwise Rm
+
+    Rn_value = default_Rn_value;
+    Rd_Rm_value = default_Rd_Rm_value;
+
+    if (!decode_dataproc_operand2_is_immediate(inst)) begin
+        if (decode_Rm(inst) == fwd_Rd_addr) begin
+            Rd_Rm_value = fwd_Rd_value;
+        end
+    end
+    if (decode_Rn(inst) == fwd_Rd_addr) begin
+        Rn_value = fwd_Rd_value;
+    end
+
+    compute_data_forwarding = {Rn_value, Rd_Rm_value};
+endfunction
+
 module executor(
         input wire clk,
         // FSM control logic
@@ -219,7 +280,11 @@ module executor(
         // Datapath signals from decoder
         input logic [`BIT_WIDTH-1:0] decoder_inst,
         input logic [`BIT_WIDTH-1:0] decoder_Rn_value, // First operand
-        input logic [`BIT_WIDTH-1:0] decoder_Rd_Rm_value // Rd for STR, otherwise Rm
+        input logic [`BIT_WIDTH-1:0] decoder_Rd_Rm_value, // Rd for STR, otherwise Rm
+        // Forwarded values from memaccessor
+        input logic memaccessor_fwd_has_Rd,
+        input logic [`REG_COUNT_L2-1:0] memaccessor_fwd_Rd_addr,
+        input logic [`BIT_WIDTH-1:0] memaccessor_fwd_Rd_value
     );
 
     // Currnet Program Status Register (CPSR)
@@ -314,25 +379,20 @@ module executor(
             // Execute instruction
             case (decode_format(next_executor_inst))
                 `FMT_MEMORY: begin
+                    // Forwarding from memaccessor
+                    if (memaccessor_fwd_has_Rd) begin
+                        {Rn_value, Rd_Rm_value} = compute_memory_forwarding(
+                            next_executor_inst, memaccessor_fwd_Rd_addr,
+                            memaccessor_fwd_Rd_value, decoder_Rn_value,
+                            decoder_Rd_Rm_value
+                        );
+                    end
                     // Forwarding from instruction that finished executing
                     if (has_databranch_Rd_value) begin
-                        if (decode_mem_is_load(next_executor_inst)) begin
-                            // LDR may use register offset
-                            if (!decode_mem_offset_is_immediate(next_executor_inst)) begin
-                                if (decode_Rm(next_executor_inst) == databranch_Rd_addr) begin
-                                    Rd_Rm_value = databranch_Rd_value;
-                                end
-                            end
-                        end
-                        else begin
-                            // STR, which cannot use register offsets
-                            if (decode_Rd(next_executor_inst) == databranch_Rd_addr) begin
-                                Rd_Rm_value = databranch_Rd_value;
-                            end
-                        end
-                        if (decode_Rn(next_executor_inst) == databranch_Rd_addr) begin
-                            Rn_value = databranch_Rd_value;
-                        end
+                        {Rn_value, Rd_Rm_value} = compute_memory_forwarding(
+                            next_executor_inst, databranch_Rd_addr,
+                            databranch_Rd_value, Rn_value, Rd_Rm_value
+                        );
                     end
                     mem_offset = compute_mem_offset(next_executor_inst, Rd_Rm_value);
                     mem_new_Rn_value = Rn_value + mem_offset;
@@ -371,15 +431,18 @@ module executor(
                 end
                 `FMT_DATA: begin
                     // Forwarding from instruction that finished executing
+                    if (memaccessor_fwd_has_Rd) begin
+                        {Rn_value, Rd_Rm_value} = compute_data_forwarding(
+                            next_executor_inst, memaccessor_fwd_Rd_addr,
+                            memaccessor_fwd_Rd_value, decoder_Rn_value,
+                            decoder_Rd_Rm_value
+                        );
+                    end
                     if (has_databranch_Rd_value) begin
-                        if (!decode_dataproc_operand2_is_immediate(next_executor_inst)) begin
-                            if (decode_Rm(next_executor_inst) == databranch_Rd_addr) begin
-                                Rd_Rm_value = databranch_Rd_value;
-                            end
-                        end
-                        if (decode_Rn(next_executor_inst) == databranch_Rd_addr) begin
-                            Rn_value = databranch_Rd_value;
-                        end
+                        {Rn_value, Rd_Rm_value} = compute_data_forwarding(
+                            next_executor_inst, databranch_Rd_addr,
+                            databranch_Rd_value, Rn_value, Rd_Rm_value
+                        );
                     end
                     dataproc_operand2 = compute_dataproc_operand2(next_executor_inst, Rd_Rm_value);
                     {next_update_Rd, dataproc_result} = run_dataproc_operation(

@@ -42,6 +42,10 @@ async def test_memaccessor_read(dut):
     assert dut.memaccessor_ready.value.integer
     assert dut.memaccessor_update_Rd.value.integer
     assert_eq(dut.memaccessor_Rd_value, read_data_memory_word(Rn_value, data_memory))
+    # Check forwarding values
+    assert dut.memaccessor_fwd_has_Rd.value.integer
+    assert_eq(dut.memaccessor_fwd_Rd_addr, 4) # r4
+    assert_eq(dut.memaccessor_fwd_Rd_value, read_data_memory_word(Rn_value, data_memory))
 
     dut.memaccessor_enable <= 0
 
@@ -75,6 +79,7 @@ async def test_memaccessor_write(dut):
     # STR should not update Rd
     assert dut.memaccessor_ready.value.integer
     assert not dut.memaccessor_update_Rd.value.integer
+    assert not dut.memaccessor_fwd_has_Rd.value.integer
 
     dut._log.info("Verify STR with LDR")
     dut.memaccessor_executor_inst <= int('e5984000', 16) # ldr r4, [r8]
@@ -88,5 +93,9 @@ async def test_memaccessor_write(dut):
     assert dut.memaccessor_ready.value.integer
     assert dut.memaccessor_update_Rd.value.integer
     assert_eq(dut.memaccessor_Rd_value, Rd_Rm_value)
+    # Check forwarding values
+    assert dut.memaccessor_fwd_has_Rd.value.integer
+    assert_eq(dut.memaccessor_fwd_Rd_addr, 4) # r4
+    assert_eq(dut.memaccessor_fwd_Rd_value, Rd_Rm_value)
 
     dut.memaccessor_enable <= 0

@@ -58,6 +58,11 @@ module cpu(
         .Rn_value(decoder_Rn_value), .Rd_Rm_value(decoder_Rd_Rm_value)
     );
 
+    // Forwarding registers/wires from memaccessor to executor
+    logic memaccessor_fwd_has_Rd;
+    logic [`REG_COUNT_L2-1:0] memaccessor_fwd_Rd_addr;
+    logic [`BIT_WIDTH-1:0] memaccessor_fwd_Rd_value;
+
     logic executor_enable, executor_ready;
     logic [`BIT_WIDTH-1:0] executor_inst;
     logic executor_update_pc;
@@ -77,7 +82,8 @@ module cpu(
         .update_pc(executor_update_pc), .pc, .new_pc(executor_new_pc),
         .update_Rd(executor_update_Rd), .databranch_Rd_value, .mem_read_addr,
         .mem_write_enable, .mem_write_addr, .mem_write_value, .decoder_inst,
-        .decoder_Rn_value, .decoder_Rd_Rm_value
+        .decoder_Rn_value, .decoder_Rd_Rm_value, .memaccessor_fwd_has_Rd,
+        .memaccessor_fwd_Rd_addr, .memaccessor_fwd_Rd_value
     );
 
     logic memaccessor_enable, memaccessor_ready;
@@ -94,7 +100,9 @@ module cpu(
         .executor_update_pc, .executor_new_pc, .executor_update_Rd,
         .databranch_Rd_value, .update_pc(memaccessor_update_pc),
         .new_pc(memaccessor_new_pc), .update_Rd(memaccessor_update_Rd),
-        .Rd_value(memaccessor_Rd_value)
+        .Rd_value(memaccessor_Rd_value), .fwd_has_Rd(memaccessor_fwd_has_Rd),
+        .fwd_Rd_addr(memaccessor_fwd_Rd_addr),
+        .fwd_Rd_value(memaccessor_fwd_Rd_value)
     );
 
     logic regfilewriter_enable, regfilewriter_ready;

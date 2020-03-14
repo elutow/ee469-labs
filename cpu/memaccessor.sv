@@ -27,7 +27,11 @@ module memaccessor(
         output logic [`BIT_WIDTH-1:0] new_pc,
         output logic update_Rd,
         // Computed outputs
-        output logic [`BIT_WIDTH-1:0] Rd_value
+        output logic [`BIT_WIDTH-1:0] Rd_value,
+        // Forward output values to executor
+        output logic fwd_has_Rd,
+        output logic [`REG_COUNT_L2-1:0] fwd_Rd_addr,
+        output logic [`BIT_WIDTH-1:0] fwd_Rd_value
     );
 
     logic [`BIT_WIDTH-1:0] read_value;
@@ -90,9 +94,12 @@ module memaccessor(
     end // comb
     `endif // SYNTHESIS
 
-    // Determine Rd value
+    // Determine Rd value and forwarding
     always_comb begin
         Rd_value = databranch_Rd_value;
+        fwd_has_Rd = 1'b0;
+        fwd_Rd_addr = `REG_COUNT_L2'bX;
+        fwd_Rd_value = read_value;
         // NOTE: update_Rd can be 1 only if the instruction passes conditions
         if (ready && decode_format(memaccessor_inst) == `FMT_MEMORY) begin
             `ifndef SYNTHESIS
@@ -103,7 +110,11 @@ module memaccessor(
                     );
                 end
             `endif // SYNTHESIS
-            if (update_Rd) Rd_value = read_value;
+            if (update_Rd) begin
+                Rd_value = read_value;
+                fwd_has_Rd = 1'b1;
+                fwd_Rd_addr = decode_Rd(memaccessor_inst);
+            end
         end
     end // comb
 endmodule
