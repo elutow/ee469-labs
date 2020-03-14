@@ -424,8 +424,10 @@ module executor(
                 end
                 default: begin end
             endcase
-            // We should never forward executor result when we are flushing
-            assert(!next_has_databranch_Rd_value || !next_flush_for_pc);
+            `ifndef SYNTHESIS
+                // We should never forward executor result when we are flushing
+                assert(!next_has_databranch_Rd_value || !next_flush_for_pc);
+            `endif
         end
     end // comb
     // Executor register updates
