@@ -3,9 +3,13 @@ TODO:
 Pipelining: Implement bubbles/no-ops and bypasses
 - See Wikipedia for full list of hazards: https://en.wikipedia.org/wiki/Hazard_(computer_architecture)
 - Also see this lecture: https://www3.nd.edu/~mniemier/teaching/2011_B_Fall/lectures/14_PPT_1up.pdf
-- Register values for immediate register read after register write
-- take values from beginning of stages back into beginning of previous stages
-    e.g. WB -> Exe, Mem -> Ex
+- Implement end of MEM -> beginning of EXE data forwarding (see above slides)
+- Implement regfilewriter write -> decoder regfile read forwarding (see above lecture slides). Should implement it in regfile module
+- Implementing bubbles for LDR hazard:
+    - Add input signal to regfilewriter so that PC updating can be temporarily disabled
+    - Add output signal to add bubble in pipeline from executor whenever operand of instruction uses result of prior LDR instruction
+    - Add control logic to disable executor
+        - When combined with disabling PC update, this will effectively add bubble to pipeline by "freezing" its contents
 
 Modules shared between modules:
 - regfile
