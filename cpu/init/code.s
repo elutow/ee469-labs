@@ -9,34 +9,69 @@
 .syntax unified
 
 start:
-	mov r4, r5
-	mov r4, r5, LSL #2	@ test logical shift left
-	mov r4, r5, LSR #2	@ test logical shift right
-	mov r4, r5, ASR #2	@ test arithmetic shift right
-	mov r4, r5, ROR #2	@ test rotate right
-	mvn r4, r5
-	add r4, r6, r7
-	add r4, r6, #2	@ test use of immediate
-	add r4, r6, #261120	@test use of rotated immediate
-	sub r4, r5, r6
-	cmp r4, r5
-	tst r4, r5
-	teq r4, r5
-	eor r4, r5, r6
-	bic r4, r5, r6
-	orr r4, r5, r6
-	ldr r4, [r8]		@ pull data from memory in [r8]
-	str r5, [r8]		@ store value of r5 into [r8]
-	ldr r4, [r8]		@ check that [r8] held the value of r5 from previous instruction
-	ldr r4, [r8, #2]	@ test immediate offset
-	ldr r4, [r8, +r9, LSR #5]	@ test register shift offset
+	@ Test basic data hazards with r1
+	add r1, r2, r3
+	sub r4, r1, r1
+	add r5, r1, #1
+	orr r6, r1, r1
+	bic r7, r1, #0
+
+	@ Clear pipeline (to make things easier to read)
+	nop
+	nop
+	nop
+	nop
+
+	@ Test stall after LDR
+	ldr r1, [r2]
+	sub r4, r1, r1
+	add r5, r1, #1
+	orr r6, r1, r1
+	bic r7, r1, #0
+
+	@ Clear pipeline
+	nop
+	nop
+	nop
+	nop
+
+	@ Test BL, ensuring pipeline flushes correctly
+	bl branch_test
 
 	@ Test conditional execution
 	cmp r4, r5
-	movne lr, #0
-	moveq pc, lr
-	blne start
+	addne r1, r2, r3
+	subeq r4, r1, r1
+	addlt r5, r1, #1
+	orrgt r6, r1, r1
+	bicmi r7, r1, #0
 
-	@ These instructions should be ignored
-unused:
-	bl unused
+	@ Set non-zero data into address of r8 (used for code below)
+	str r1, [r8]
+
+	@ Clear pipeline
+	nop
+	nop
+	nop
+	nop
+
+	@ Loop to start using LDR
+	@ We know that the first instruction is at address 0 in our CPU
+	mov r10, #0
+	str r10, [r8]
+	ldr pc, [r8]
+	@ These should not run
+	add r1, r2, r3
+	sub r4, r1, r1
+	add r5, r1, #1
+	orr r6, r1, r1
+	bic r7, r1, #0
+
+branch_test:
+	mov pc, lr
+	@ These should not run
+	add r1, r2, r3
+	sub r4, r1, r1
+	add r5, r1, #1
+	orr r6, r1, r1
+	bic r7, r1, #0
