@@ -212,20 +212,20 @@ function automatic should_stall_for_ldr_for_data;
         assert(decode_format(inst) == `FMT_DATA);
     `endif
 
+    should_stall_for_ldr_for_data = 1'b0;
     if (decode_format(prev_inst) == `FMT_MEMORY) begin
         if (decode_mem_is_load(prev_inst)) begin
             ldr_Rd_addr = decode_Rd(prev_inst);
             if (!decode_dataproc_operand2_is_immediate(inst)) begin
                 if (decode_Rm(inst) == ldr_Rd_addr) begin
-                    return 1'b1;
+                    should_stall_for_ldr_for_data = 1'b1;
                 end
             end
             if (decode_Rn(inst) == ldr_Rd_addr) begin
-                return 1'b1;
+                should_stall_for_ldr_for_data = 1'b1;
             end
         end
     end
-    return 1'b0;
 endfunction
 
 function automatic should_stall_for_ldr_for_memory;
@@ -239,6 +239,7 @@ function automatic should_stall_for_ldr_for_memory;
         assert(decode_format(inst) == `FMT_MEMORY);
     `endif
 
+    should_stall_for_ldr_for_memory = 1'b0;
     if (decode_format(prev_inst) == `FMT_MEMORY) begin
         if (decode_mem_is_load(prev_inst)) begin
             ldr_Rd_addr = decode_Rd(prev_inst);
@@ -246,22 +247,21 @@ function automatic should_stall_for_ldr_for_memory;
                 // LDR may use register offset
                 if (!decode_mem_offset_is_immediate(inst)) begin
                     if (decode_Rm(inst) == ldr_Rd_addr) begin
-                        return 1'b1;
+                        should_stall_for_ldr_for_memory = 1'b1;
                     end
                 end
             end
             else begin
                 // STR, which cannot use register offsets
                 if (decode_Rd(inst) == ldr_Rd_addr) begin
-                    return 1'b1;
+                    should_stall_for_ldr_for_memory = 1'b1;
                 end
             end
             if (decode_Rn(inst) == ldr_Rd_addr) begin
-                return 1'b1;
+                should_stall_for_ldr_for_memory = 1'b1;
             end
         end
     end
-    return 1'b0;
 endfunction
 
 module decoder(
