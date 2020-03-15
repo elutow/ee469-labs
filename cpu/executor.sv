@@ -314,8 +314,10 @@ module executor(
     // Datapath logic
     // Determine instruction to output from executor
     logic [`BIT_WIDTH-1:0] next_executor_inst;
-    // We don't save decoder_inst because we don't persist our output while not ready
-    assign next_executor_inst = decoder_inst;
+    always_comb begin
+        next_executor_inst = executor_inst;
+        if (next_ready) next_executor_inst = decoder_inst;
+    end
     always_ff @(posedge clk) begin
         if (nreset) begin
             executor_inst <= next_executor_inst;
@@ -339,8 +341,8 @@ module executor(
     logic [`BIT_WIDTH-1:0] next_new_pc;
     logic next_flush_for_pc;
     // For resolving data hazards
-    logic [`BIT_WIDTH-1:0] Rn_value; // First operand
-    logic [`BIT_WIDTH-1:0] Rd_Rm_value; // Rd for STR, otherwise Rm
+    logic [`BIT_WIDTH-1:0] Rn_value, prev_Rn_value; // First operand
+    logic [`BIT_WIDTH-1:0] Rd_Rm_value, prev_Rd_Rm_value; // Rd for STR, otherwise Rm
     // Forwarding from instruction that finished executing
     logic has_databranch_Rd_value, next_has_databranch_Rd_value;
     logic [`REG_COUNT_L2-1:0] databranch_Rd_addr, next_databranch_Rd_addr;
@@ -350,31 +352,44 @@ module executor(
     logic [`BIT_WIDTH-1:0] next_mem_write_addr;
     logic [`BIT_WIDTH-1:0] next_mem_write_value;
     always_comb begin
-        dataproc_operand2 = `BIT_WIDTH'bX;
+        // Registers to persist if we get disabled
         // We only set update_Rd = 1 if format is dataproc and operation demands it.
-        dataproc_result = `BIT_WIDTH'bX;
-        next_update_Rd = 1'b0;
-        next_databranch_Rd_value = `BIT_WIDTH'bX;
-        next_update_pc = 1'b0;
-        next_new_pc = `BIT_WIDTH'bX;
+        next_update_Rd = update_Rd;
+        next_databranch_Rd_value = databranch_Rd_value;
+        next_update_pc = update_pc;
+        next_new_pc = new_pc;
         next_cpsr = cpsr;
+        next_flush_for_pc = flush_for_pc;
+        Rn_value = prev_Rn_value;
+        Rd_Rm_value = prev_Rd_Rm_value;
+        next_has_databranch_Rd_value = has_databranch_Rd_value;
+        next_databranch_Rd_addr = databranch_Rd_addr;
+        next_mem_write_enable = mem_write_enable;
+        next_mem_read_addr = mem_read_addr;
+        next_mem_write_addr = mem_write_addr;
+        next_mem_write_value = mem_write_value;
+
+        // Intermediates for comb logic below
+        dataproc_operand2 = `BIT_WIDTH'bX;
+        dataproc_result = `BIT_WIDTH'bX;
         mem_new_Rn_value = `BIT_WIDTH'bX;
         mem_offset = `BIT_WIDTH'bX;
-        next_flush_for_pc = 1'b0;
-        Rn_value = decoder_Rn_value;
-        Rd_Rm_value = decoder_Rd_Rm_value;
-        next_has_databranch_Rd_value = 1'b0;
-        next_databranch_Rd_addr = `REG_COUNT_L2'bX;
-        next_mem_write_enable = 1'b0;
-        next_mem_read_addr = `BIT_WIDTH'bX;
-        next_mem_write_addr = `BIT_WIDTH'bX;
-        next_mem_write_value = `BIT_WIDTH'bX;
 
         // Whether the instruction condition passes CPSR for execution
         condition_passes = check_condition(
             cpsr,
             decode_condition(next_executor_inst)
         );
+        if (next_ready) begin
+            // Set default values for comb logic
+            next_update_Rd = 1'b0;
+            next_update_pc = 1'b0;
+            next_flush_for_pc = 1'b0;
+            Rn_value = decoder_Rn_value;
+            Rd_Rm_value = decoder_Rd_Rm_value;
+            next_has_databranch_Rd_value = 1'b0;
+            next_mem_write_enable = 1'b0;
+        end
         if (next_ready && condition_passes) begin
             // Execute instruction
             case (decode_format(next_executor_inst))
@@ -502,6 +517,8 @@ module executor(
             update_pc <= next_update_pc;
             new_pc <= next_new_pc;
             flush_for_pc <= next_flush_for_pc;
+            prev_Rn_value <= Rn_value;
+            prev_Rd_Rm_value <= Rd_Rm_value;
             has_databranch_Rd_value <= next_has_databranch_Rd_value;
             databranch_Rd_addr <= next_databranch_Rd_addr;
             mem_read_addr <= next_mem_read_addr;
@@ -516,6 +533,8 @@ module executor(
             update_pc <= 1'b0;
             new_pc <= `BIT_WIDTH'b0;
             flush_for_pc <= 1'b0;
+            prev_Rn_value <= `BIT_WIDTH'b0;
+            prev_Rd_Rm_value <= `BIT_WIDTH'b0;
             has_databranch_Rd_value <= 1'b0;
             databranch_Rd_addr <= `REG_COUNT_L2'b0;
             mem_read_addr <= `BIT_WIDTH'b0;

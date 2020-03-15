@@ -334,3 +334,147 @@ async def test_executor_memaccessor_forward(dut):
     assert not dut.executor_update_pc.value.integer
     assert not dut.executor_mem_write_enable.value.integer
     assert_eq(dut.executor_databranch_Rd_value, Rd_Rm_value)
+
+@cocotb.test()
+async def test_executor_disable(dut):
+    """Test if executor persists outputs when disabled"""
+
+    clkedge = init_posedge_clk(dut.executor_clk)
+
+    # Need to add PC offset when setting executor_pc due to pipelining
+    executor_pc_offset = 8
+
+    # Reset and enable
+    dut.executor_nreset <= 0
+    await clkedge
+    dut.executor_nreset <= 1
+
+    async def _test_disable(initial_inputs, expected_outputs, delay_scramble=tuple()):
+        def _check_expected():
+            for signal, value in expected_outputs.items():
+                try:
+                    assert_eq(signal, value)
+                except AssertionError as exc:
+                    raise AssertionError(
+                        'Failed expected value on signal {} with error: {}'.format(
+                            signal._name, str(exc)
+                        )
+                    )
+
+        # Enable module
+        dut.executor_enable <= 1
+
+        # Set initial inputs
+        for signal, value in initial_inputs.items():
+            signal <= value
+
+        await clkedge
+        await Timer(1, 'us')
+        assert dut.executor_ready.value.integer
+        # Check expected_outputs
+        _check_expected()
+
+        # Disable module
+        dut.executor_enable <= 0
+
+        # Scramble inputs
+        for signal in initial_inputs:
+            if signal not in delay_scramble:
+                signal <= 1 # set to non-zero to not conflate with Verilator's default value
+        await clkedge
+        await Timer(1, 'us')
+        assert not dut.executor_ready.value.integer
+        # Check expected outputs
+        _check_expected()
+
+        if delay_scramble:
+            # Scramble inputs that need a delay to take effect
+            for signal in delay_scramble:
+                signal <= 1
+            await clkedge
+            await Timer(1, 'us')
+            assert not dut.executor_ready.value.integer
+            # Check expected outputs
+            _check_expected()
+
+    Rn_value = 4 # r8
+    Rd_Rm_value = 0b1100000 # r9, final value after LSR #5 should be 3
+    initial_inputs = {
+        dut.executor_pc: 64,
+        dut.executor_decoder_inst: 0xe79842a9, # ldr r4, [r8, r9, lsr #5]
+        dut.executor_decoder_Rn_value: Rn_value,
+        dut.executor_decoder_Rd_Rm_value: Rd_Rm_value,
+        dut.executor_memaccessor_fwd_has_Rd: False,
+        # Should be unused values
+        dut.executor_memaccessor_fwd_Rd_addr: 5,
+        dut.executor_memaccessor_fwd_Rd_value: 0xdedebeef,
+    }
+    # Inputs that need to be scrambled later since they're updated after ready
+    # is asserted
+    delay_scramble = set()
+    expected_outputs = {
+        dut.executor_cpsr: 0b0000,
+        dut.executor_condition_passes: True,
+        dut.executor_executor_inst: initial_inputs[dut.executor_decoder_inst],
+        dut.executor_update_pc: False,
+        dut.executor_update_Rd: True,
+        dut.executor_flush_for_pc: False,
+        dut.executor_mem_read_addr: Rn_value+(Rd_Rm_value>>5),
+        dut.executor_mem_write_enable: False,
+    }
+    await _test_disable(
+        initial_inputs, expected_outputs, delay_scramble=delay_scramble)
+
+    Rd_Rm_value_unused = 0xdeadbeef # r4, should not be used in STR below
+    Rd_Rm_value = 0xbabafafa # r4
+    initial_inputs = {
+        dut.executor_pc: 64,
+        dut.executor_decoder_inst: 0xe1a05004, # mov r5, r4
+        dut.executor_decoder_Rn_value: 42, # unused
+        dut.executor_decoder_Rd_Rm_value: Rd_Rm_value_unused,
+        dut.executor_memaccessor_fwd_has_Rd: True,
+        dut.executor_memaccessor_fwd_Rd_addr: 4, # r4
+        dut.executor_memaccessor_fwd_Rd_value: Rd_Rm_value,
+    }
+    delay_scramble = set()
+    expected_outputs = {
+        dut.executor_cpsr: 0b0000,
+        dut.executor_condition_passes: True,
+        dut.executor_executor_inst: initial_inputs[dut.executor_decoder_inst],
+        dut.executor_update_pc: False,
+        dut.executor_update_Rd: True,
+        dut.executor_databranch_Rd_value: Rd_Rm_value,
+        dut.executor_flush_for_pc: False,
+        dut.executor_mem_write_enable: False,
+    }
+    await _test_disable(
+        initial_inputs, expected_outputs, delay_scramble=delay_scramble)
+
+    # Test branch with link
+    # Need to add PC offset when setting executor_pc due to pipelining
+    executor_pc_offset = 8
+    pc_init = 16
+    initial_inputs = {
+        dut.executor_pc: pc_init + executor_pc_offset,
+        dut.executor_decoder_inst: 0xebfffffb, # bl 0x68 (relative to 0x74)
+        # Unused values
+        dut.executor_decoder_Rn_value: 42,
+        dut.executor_decoder_Rd_Rm_value: 0xbeef,
+        dut.executor_memaccessor_fwd_has_Rd: True,
+        dut.executor_memaccessor_fwd_Rd_addr: 4,
+        dut.executor_memaccessor_fwd_Rd_value: 0xdead,
+    }
+    delay_scramble = set()
+    expected_outputs = {
+        dut.executor_cpsr: 0b0000,
+        dut.executor_condition_passes: True,
+        dut.executor_executor_inst: initial_inputs[dut.executor_decoder_inst],
+        dut.executor_update_pc: True,
+        dut.executor_new_pc: pc_init + (0x68 - 0x74),
+        dut.executor_update_Rd: True,
+        dut.executor_databranch_Rd_value: pc_init + 4,
+        dut.executor_flush_for_pc: True,
+        dut.executor_mem_write_enable: False,
+    }
+    await _test_disable(
+        initial_inputs, expected_outputs, delay_scramble=delay_scramble)
