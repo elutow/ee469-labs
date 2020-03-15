@@ -81,8 +81,8 @@ async def test_regfilewriter_branchlink(dut):
 
 
 @cocotb.test()
-async def test_regfilewriter_nonbranch(dut):
-    """Test regfilewriter non-branch instruction"""
+async def test_regfilewriter_nonbranch_nonpc(dut):
+    """Test regfilewriter non-branch instruction updating non-PC register"""
 
     clkedge, current_pc = await _setup_regfilewriter(dut)
 
@@ -96,8 +96,7 @@ async def test_regfilewriter_nonbranch(dut):
     # at the last clkedge
     await Timer(1, 'us')
     assert dut.regfilewriter_ready.value.integer
-    assert dut.regfilewriter_regfile_update_pc.value.integer
-    assert dut.regfilewriter_regfile_new_pc == current_pc + 4
+    assert not dut.regfilewriter_regfile_update_pc.value.integer
     assert dut.regfilewriter_regfile_write_enable1.value.integer
     assert dut.regfilewriter_regfile_write_addr1 == 4 # r4
     assert dut.regfilewriter_regfile_write_value1 == Rd_value
@@ -106,8 +105,8 @@ async def test_regfilewriter_nonbranch(dut):
 
 
 @cocotb.test()
-async def test_regfilewriter_nonbranch(dut):
-    """Test regfilewriter non-branch instruction"""
+async def test_regfilewriter_nonbranch_pc(dut):
+    """Test regfilewriter non-branch instruction updating PC register"""
 
     clkedge, current_pc = await _setup_regfilewriter(dut)
 
@@ -151,8 +150,7 @@ async def test_regfilewriter_pc_nonexe(dut):
     # at the last clkedge
     await Timer(1, 'us')
     assert dut.regfilewriter_ready.value.integer
-    assert dut.regfilewriter_regfile_update_pc.value.integer
-    assert dut.regfilewriter_regfile_new_pc == current_pc + 4
+    assert not dut.regfilewriter_regfile_update_pc.value.integer
     assert not dut.regfilewriter_regfile_write_enable1.value.integer
 
     _cleanup_regfilewriter(dut)

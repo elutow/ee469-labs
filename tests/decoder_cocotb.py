@@ -3,7 +3,7 @@ import random
 import cocotb
 from cocotb.triggers import Timer
 
-from _tests_common import init_posedge_clk
+from _tests_common import assert_eq, init_posedge_clk
 
 @cocotb.test()
 async def test_decoder_assert(dut):
@@ -95,3 +95,36 @@ async def test_decoder_regfile(dut):
 
     # Reset dut to initial state
     dut.decoder_enable.setimmediatevalue(0)
+
+@cocotb.test()
+async def test_decoder_stall_for_ldr(dut):
+    """Test decoder's stalling for LDR"""
+
+    clkedge = init_posedge_clk(dut.decoder_clk)
+
+    # Need to add PC offset when setting decoder_pc due to pipelining
+    decoder_pc_offset = 8
+
+    # Reset and enable
+    dut.decoder_nreset <= 0
+    await clkedge
+    dut.decoder_nreset <= 1
+    dut.decoder_enable <= 1
+
+    dut.decoder_fetcher_inst <= 0xe79842a9 # ldr r4, [r8, r9, lsr #5]
+    await clkedge
+    # We need to wait a little since the values just became available
+    # at the last clkedge
+    await Timer(1, 'us')
+    assert dut.decoder_ready.value.integer
+    assert_eq(dut.decoder_regfile_read_addr1, 8)
+    assert_eq(dut.decoder_regfile_read_addr2, 9)
+
+    dut.decoder_fetcher_inst <= 0xe1a05004 # mov r5, r4
+    await clkedge
+    # We need to wait a little since the values just became available
+    # at the last clkedge
+    await Timer(1, 'us')
+    assert dut.decoder_ready.value.integer
+    assert_eq(dut.decoder_regfile_read_addr2, 4) # r4
+    assert dut.decoder_stall_for_ldr.value.integer

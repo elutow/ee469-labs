@@ -51,8 +51,10 @@ module cpu(
     logic decoder_enable, decoder_ready;
     logic [`BIT_WIDTH-1:0] decoder_inst;
     logic [`BIT_WIDTH-1:0] decoder_Rn_value, decoder_Rd_Rm_value;
+    logic stall_for_ldr;
     decoder the_decoder(
         .clk, .nreset, .enable(decoder_enable), .ready(decoder_ready),
+        .stall_for_ldr,
         .fetcher_inst, .decoder_inst, .regfile_read_inst, .regfile_read_addr1,
         .regfile_read_addr2, .regfile_read_value1, .regfile_read_value2,
         .Rn_value(decoder_Rn_value), .Rd_Rm_value(decoder_Rd_Rm_value)
@@ -106,23 +108,28 @@ module cpu(
     );
 
     logic regfilewriter_enable, regfilewriter_ready;
+    logic [`BIT_WIDTH-1:0] regfilewriter_new_pc;
+    logic regfilewriter_update_pc;
     regfilewriter the_regfilewriter(
         .clk, .nreset, .enable(regfilewriter_enable), .ready(regfilewriter_ready),
         .pc, .memaccessor_inst, .update_pc(memaccessor_update_pc),
         .new_pc(memaccessor_new_pc), .update_Rd(memaccessor_update_Rd),
         .Rd_value(memaccessor_Rd_value), .regfile_write_enable1,
-        .regfile_write_addr1, .regfile_write_value1, .regfile_new_pc,
-        .regfile_update_pc
+        .regfile_write_addr1, .regfile_write_value1,
+        .regfile_new_pc(regfilewriter_new_pc),
+        .regfile_update_pc(regfilewriter_update_pc)
     );
 
     // CPU FSM to control pipelining
     enum { RUNNING, PC_FLUSH } ps, ns;
+    logic stall_pc_advance;
     always_comb begin
         fetcher_enable = nreset;
         decoder_enable = fetcher_ready;
         executor_enable = decoder_ready;
         memaccessor_enable = executor_ready;
         regfilewriter_enable = memaccessor_ready;
+        stall_pc_advance = 1'b0;
         case (ps)
             RUNNING: begin
                 ns = RUNNING;
@@ -131,6 +138,14 @@ module cpu(
                     fetcher_enable = 1'b0;
                     decoder_enable = 1'b0;
                     executor_enable = 1'b0;
+                end
+                if (stall_for_ldr) begin
+                    // Stall fetcher, decoder, executor
+                    fetcher_enable = 1'b0;
+                    decoder_enable = 1'b0;
+                    executor_enable = 1'b0;
+                    stall_pc_advance = 1'b1;
+                    // ns = RUNNING because we stall for one clkedge only
                 end
             end
             PC_FLUSH: begin // Flush stages before executor for PC update
@@ -154,6 +169,19 @@ module cpu(
             ps <= RUNNING;
         end
     end
+
+    // PC-updating logic
+    always_comb begin
+        regfile_update_pc = regfilewriter_update_pc;
+        regfile_new_pc = regfilewriter_new_pc;
+        if (!(regfile_update_pc || regfile_write_enable1 && (regfile_write_addr1 == `REG_PC_INDEX))) begin
+            // Update PC to next instruction
+            if (!stall_pc_advance) begin
+                regfile_update_pc = 1'b1;
+                regfile_new_pc = pc + `BIT_WIDTH'd4;
+            end
+        end
+    end // comb
 
     // Debug port outputs
     always_comb begin

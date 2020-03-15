@@ -83,12 +83,6 @@ module regfilewriter(
                 regfile_update_pc = 1'b1;
                 regfile_new_pc = new_pc;
             end
-            else if (!(regfile_write_enable1 && (regfile_write_addr1 == `REG_PC_INDEX))) begin
-                // NOTE: MULTICYCLE ONLY
-                // Update PC to next instruction otherwise
-                regfile_update_pc = 1'b1;
-                regfile_new_pc = pc + `BIT_WIDTH'd4;
-            end
         end
     end // comb
 endmodule

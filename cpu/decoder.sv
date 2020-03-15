@@ -201,6 +201,69 @@ function automatic [`BIT_WIDTH-1:0] fix_operand2_pc_read_value;
     end
 endfunction
 
+function automatic should_stall_for_ldr_for_data;
+    // Whether to set stall_for_ldr for inst in data format
+    input logic [`BIT_WIDTH-1:0] inst;
+    input logic [`BIT_WIDTH-1:0] prev_inst;
+
+    logic [`REG_COUNT_L2-1:0] ldr_Rd_addr;
+
+    `ifndef SYNTHESIS
+        assert(decode_format(inst) == `FMT_DATA);
+    `endif
+
+    if (decode_format(prev_inst) == `FMT_MEMORY) begin
+        if (decode_mem_is_load(prev_inst)) begin
+            ldr_Rd_addr = decode_Rd(prev_inst);
+            if (!decode_dataproc_operand2_is_immediate(inst)) begin
+                if (decode_Rm(inst) == ldr_Rd_addr) begin
+                    return 1'b1;
+                end
+            end
+            if (decode_Rn(inst) == ldr_Rd_addr) begin
+                return 1'b1;
+            end
+        end
+    end
+    return 1'b0;
+endfunction
+
+function automatic should_stall_for_ldr_for_memory;
+    // Whether to set stall_for_ldr for inst in memory format
+    input logic [`BIT_WIDTH-1:0] inst;
+    input logic [`BIT_WIDTH-1:0] prev_inst;
+
+    logic [`REG_COUNT_L2-1:0] ldr_Rd_addr;
+
+    `ifndef SYNTHESIS
+        assert(decode_format(inst) == `FMT_MEMORY);
+    `endif
+
+    if (decode_format(prev_inst) == `FMT_MEMORY) begin
+        if (decode_mem_is_load(prev_inst)) begin
+            ldr_Rd_addr = decode_Rd(prev_inst);
+            if (decode_mem_is_load(inst)) begin
+                // LDR may use register offset
+                if (!decode_mem_offset_is_immediate(inst)) begin
+                    if (decode_Rm(inst) == ldr_Rd_addr) begin
+                        return 1'b1;
+                    end
+                end
+            end
+            else begin
+                // STR, which cannot use register offsets
+                if (decode_Rd(inst) == ldr_Rd_addr) begin
+                    return 1'b1;
+                end
+            end
+            if (decode_Rn(inst) == ldr_Rd_addr) begin
+                return 1'b1;
+            end
+        end
+    end
+    return 1'b0;
+endfunction
+
 module decoder(
         input wire clk,
         input wire nreset,
@@ -211,6 +274,7 @@ module decoder(
         input logic [`BIT_WIDTH-1:0] fetcher_inst,
         // Instruction decoding outputs
         output logic [`BIT_WIDTH-1:0] decoder_inst,
+        output logic stall_for_ldr, // Stall because previous LDR modifies current instruction's operands
         // Regfile I/O
         // regfile_read_addr* is determined directly from inst so we get the
         //   result from regfile at the same clock cycle as cache_inst values
@@ -270,6 +334,32 @@ module decoder(
             decoder_inst <= `BIT_WIDTH'b0;
         end
     end
+    // Determine whether to stall for LDR
+    logic next_stall_for_ldr;
+    always_comb begin
+        next_stall_for_ldr = stall_for_ldr;
+        case (decode_format(next_decoder_inst))
+            `FMT_MEMORY: begin
+                next_stall_for_ldr = should_stall_for_ldr_for_memory(
+                    next_decoder_inst, decoder_inst
+                );
+            end
+            `FMT_DATA: begin
+                next_stall_for_ldr = should_stall_for_ldr_for_data(
+                    next_decoder_inst, decoder_inst
+                );
+            end
+            default: begin end
+        endcase
+    end // comb
+    always_ff @(posedge clk) begin
+        if (nreset) begin
+            stall_for_ldr <= next_stall_for_ldr;
+        end
+        else begin
+            stall_for_ldr <= 1'b0;
+        end
+    end // ff
     // Determine registers to be read from regfile
     // NOTE: These operate on next_decoder_inst because we need the regfile to
     // output on the same clock cycle as decoder_inst is set
