@@ -121,7 +121,7 @@ module cpu(
     );
 
     // CPU FSM to control pipelining
-    enum { RUNNING, PC_FLUSH } ps, ns;
+    enum { RUNNING, PC_FLUSH, LDR_STALL } ps, ns;
     logic stall_pc_advance;
     always_comb begin
         fetcher_enable = nreset;
@@ -133,31 +133,44 @@ module cpu(
         case (ps)
             RUNNING: begin
                 ns = RUNNING;
-                if (flush_for_pc) begin
+                if (executor_ready && flush_for_pc) begin
                     ns = PC_FLUSH;
                     fetcher_enable = 1'b0;
                     decoder_enable = 1'b0;
                     executor_enable = 1'b0;
                 end
-                if (stall_for_ldr) begin
+                if (decoder_ready && stall_for_ldr) begin
                     // Stall fetcher, decoder, executor
                     fetcher_enable = 1'b0;
                     decoder_enable = 1'b0;
                     executor_enable = 1'b0;
                     stall_pc_advance = 1'b1;
-                    // ns = RUNNING because we stall for one clkedge only
+                    ns = LDR_STALL;
                 end
             end
             PC_FLUSH: begin // Flush stages before executor for PC update
                 `ifndef SYNTHESIS
-                    assert(!flush_for_pc); // Flush signal should be asserted once only
+                    // Because executor is disabled, its flush status persists
+                    assert(flush_for_pc);
+                    // However, the ready signal should turn off
                     assert(!executor_ready);
+                    // Sanity check if memaccessor finished
                     assert(memaccessor_ready);
                 `endif
                 fetcher_enable = 1'b0;
                 decoder_enable = 1'b0;
                 executor_enable = 1'b0;
+                // Since memaccessor is done, disable it
+                memaccessor_enable = 1'b0;
                 ns = RUNNING; // By next clock cycle, regfilewriter should be done
+            end
+            LDR_STALL: begin
+                // Pipeline has been stalled for one cycle for memaccessor, now
+                // resume flow of data in the pipeline
+                ns = RUNNING;
+                fetcher_enable = 1'b1;
+                decoder_enable = 1'b1;
+                executor_enable = 1'b1;
             end
         endcase
     end // comb
