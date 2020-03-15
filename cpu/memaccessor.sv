@@ -65,12 +65,28 @@ module memaccessor(
     end // ff
 
     // Passthrough executor values
+    logic [`BIT_WIDTH-1:0] next_memaccessor_inst;
+    logic next_update_pc;
+    logic [`BIT_WIDTH-1:0] next_new_pc;
+    logic next_update_Rd;
+    always_comb begin
+        next_memaccessor_inst = memaccessor_inst;
+        next_update_pc = update_pc;
+        next_new_pc = new_pc;
+        next_update_Rd = update_Rd;
+        if (next_ready) begin
+            next_memaccessor_inst = executor_inst;
+            next_update_pc = executor_update_pc;
+            next_new_pc = executor_new_pc;
+            next_update_Rd = executor_update_Rd;
+        end
+    end
     always_ff @(posedge clk) begin
         if (nreset) begin
-            memaccessor_inst <= executor_inst;
-            update_pc <= executor_update_pc;
-            new_pc <= executor_new_pc;
-            update_Rd <= executor_update_Rd;
+            memaccessor_inst <= next_memaccessor_inst;
+            update_pc <= next_update_pc;
+            new_pc <= next_new_pc;
+            update_Rd <= next_update_Rd;
         end
         else begin
             memaccessor_inst <= `BIT_WIDTH'b0;
@@ -95,26 +111,64 @@ module memaccessor(
     `endif // SYNTHESIS
 
     // Determine Rd value and forwarding
+    // First clock cycle
+    logic next_fwd_has_Rd;
+    logic [`REG_COUNT_L2-1:0] next_fwd_Rd_addr;
     always_comb begin
-        Rd_value = databranch_Rd_value;
-        fwd_has_Rd = 1'b0;
-        fwd_Rd_addr = `REG_COUNT_L2'bX;
-        fwd_Rd_value = read_value;
-        // NOTE: update_Rd can be 1 only if the instruction passes conditions
-        if (ready && decode_format(memaccessor_inst) == `FMT_MEMORY) begin
-            `ifndef SYNTHESIS
-                assert(decode_mem_is_load(memaccessor_inst) == update_Rd) else begin
-                    $error("Failed is_load (%b) == update_Rd (%b) for inst %h",
-                        decode_mem_is_load(memaccessor_inst), update_Rd,
-                        memaccessor_inst
-                    );
-                end
-            `endif // SYNTHESIS
-            if (update_Rd) begin
-                Rd_value = read_value;
-                fwd_has_Rd = 1'b1;
-                fwd_Rd_addr = decode_Rd(memaccessor_inst);
+        next_fwd_has_Rd = fwd_has_Rd;
+        next_fwd_Rd_addr = fwd_Rd_addr;
+        if (next_ready && next_update_Rd) begin
+            next_fwd_has_Rd = 1'b1;
+            if (decode_format(next_memaccessor_inst) == `FMT_BRANCH) begin
+                next_fwd_has_Rd = 1'b0;
+            end
+            else begin
+                next_fwd_Rd_addr = decode_Rd(next_memaccessor_inst);
             end
         end
     end // comb
+    always_ff @(posedge clk) begin
+        if (nreset) begin
+            fwd_has_Rd <= next_fwd_has_Rd;
+            fwd_Rd_addr <= next_fwd_Rd_addr;
+        end
+        else begin
+            fwd_has_Rd <= 1'b0;
+            fwd_Rd_addr <= `REG_COUNT_L2'b0;
+        end
+    end // ff
+    // Second clock cycle
+    logic [`BIT_WIDTH-1:0] prev_Rd_value;
+    logic [`BIT_WIDTH-1:0] prev_databranch_Rd_value;
+    assign fwd_Rd_value = Rd_value;
+    always_comb begin
+        Rd_value = prev_Rd_value;
+        if (ready) begin
+            Rd_value = prev_databranch_Rd_value;
+            // NOTE: update_Rd can be 1 only if the instruction passes conditions
+            if (decode_format(memaccessor_inst) == `FMT_MEMORY) begin
+                `ifndef SYNTHESIS
+                    assert(decode_mem_is_load(memaccessor_inst) == update_Rd) else begin
+                        $error("Failed is_load (%b) == update_Rd (%b) for inst %h",
+                            decode_mem_is_load(memaccessor_inst), update_Rd,
+                            memaccessor_inst
+                        );
+                    end
+                `endif // SYNTHESIS
+                if (update_Rd) begin
+                    Rd_value = read_value;
+                end
+            end
+        end
+    end // comb
+    always_ff @(posedge clk) begin
+        if (nreset) begin
+            prev_Rd_value <= Rd_value;
+            prev_databranch_Rd_value <= databranch_Rd_value;
+        end
+        else begin
+            prev_Rd_value <= `BIT_WIDTH'b0;
+            prev_databranch_Rd_value <= `BIT_WIDTH'b0;
+        end
+    end
 endmodule
