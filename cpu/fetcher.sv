@@ -44,25 +44,26 @@ module fetcher(
 
     // Datapath logic
     // Clocked code memory read address
-    // This is `BIT_WIDTH-1-2 to align to 4 bytes
-    logic [`BIT_WIDTH-3:0] read_addr;
-    // Contain pc >> 2
-    logic [`BIT_WIDTH-3:0] pc_shifted;
+    // This is `BIT_WIDTH-1-2 to align to 4 bytes; i.e. contain pc >> 2
+    logic [`BIT_WIDTH-3:0] read_addr, next_read_addr;
     always_comb begin
         fetcher_inst = code_memory[read_addr[`INST_COUNT_L2-1:0]];
-        pc_shifted = pc[`BIT_WIDTH-1:2]; // pc >> 2
+        next_read_addr = read_addr;
+        if (next_ready) next_read_addr = pc[`BIT_WIDTH-1:2]; // pc >> 2
     end
     always_ff @(posedge clk) begin
         if (nreset) begin
             `ifndef SYNTHESIS
-                assert(pc_shifted < `INST_COUNT) else begin
+                assert(next_read_addr < `INST_COUNT) else begin
                     $error("pc out of range: %d", pc);
                 end
-                assert(pc[1:0] == 2'b00) else begin
-                    $error("pc not aligned to 4 bytes: %d", pc);
+                if (next_ready) begin
+                    assert(pc[1:0] == 2'b00) else begin
+                        $error("pc not aligned to 4 bytes: %d", pc);
+                    end
                 end
             `endif
-            read_addr <= pc_shifted;
+            read_addr <= next_read_addr;
         end
         else begin
             read_addr <= 30'b0; // `BIT_WIDTH - 2
