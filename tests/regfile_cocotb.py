@@ -3,7 +3,7 @@ import random
 import cocotb
 from cocotb.triggers import Timer
 
-from _tests_common import init_posedge_clk, read_regfile_init
+from _tests_common import assert_eq, assert_neq, init_posedge_clk, read_regfile_init
 
 @cocotb.test()
 async def test_regfile_read(dut):
@@ -79,7 +79,7 @@ async def test_regfile_write(dut):
         # Wait a little bit after clkedge to check immediate values
         await Timer(1, 'us')
 
-        assert dut.regfile_read_value1 == new_value
+        assert_eq(dut.regfile_read_value1, new_value)
 
     # Reset
     dut.regfile_nreset <= 0
@@ -131,3 +131,39 @@ async def test_regfile_pc(dut):
 
     # Stop modifying PC so other tests can reset the PC
     dut.regfile_update_pc.setimmediatevalue(0)
+
+@cocotb.test()
+async def test_regfile_concurrentrw(dut):
+    """Test regfile concurrent read/write to same address"""
+
+    clkedge = init_posedge_clk(dut.regfile_clk)
+
+    # Reset
+    dut.regfile_nreset <= 0
+    await clkedge
+    dut.regfile_nreset <= 1
+    await clkedge
+
+    test_addr = 4
+    test_value = 0xbeefbeef
+
+    dut.regfile_write_addr1.setimmediatevalue(0)
+    dut.regfile_write_enable1.setimmediatevalue(0)
+    dut.regfile_write_value1.setimmediatevalue(0)
+    dut.regfile_read_addr1.setimmediatevalue(0)
+    dut.regfile_read_addr2.setimmediatevalue(0)
+    await clkedge
+    await Timer(1, 'us')
+    assert_neq(dut.regfile_read_value1, test_value)
+    assert_neq(dut.regfile_read_value2, test_value)
+
+    dut.regfile_write_addr1.setimmediatevalue(test_addr)
+    dut.regfile_write_value1.setimmediatevalue(test_value)
+    dut.regfile_write_enable1.setimmediatevalue(1)
+    # Read out value as soon as we can
+    dut.regfile_read_addr1.setimmediatevalue(test_addr)
+    dut.regfile_read_addr2.setimmediatevalue(test_addr)
+    await clkedge
+    await Timer(1, 'us')
+    assert_eq(dut.regfile_read_value1, test_value)
+    assert_eq(dut.regfile_read_value2, test_value)

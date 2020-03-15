@@ -10,10 +10,16 @@ def _get_hex(raw_obj):
         return hex(raw_obj.value.integer)
     return hex(raw_obj)
 
-def assert_eq(first, second):
-    if first == second:
+def _assert_base(first, second, compare_func):
+    if compare_func(first, second):
         return
     raise AssertionError('{} != {}'.format(_get_hex(first), _get_hex(second)))
+
+def assert_eq(first, second):
+    _assert_base(first, second, lambda x, y: x == y)
+
+def assert_neq(first, second):
+    _assert_base(first, second, lambda x, y: x != y)
 
 def init_posedge_clk(dut_clk):
     # Start clock running in background

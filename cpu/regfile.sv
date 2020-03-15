@@ -22,7 +22,6 @@ module regfile(
     // Synchronous values
     logic [`BIT_WIDTH-1:0] next_pc;
     logic [`REG_COUNT_L2-1:0] prev_read_addr1, prev_read_addr2;
-    logic [`BIT_WIDTH-1:0] prev_read_inst;
 
     // Register file and outputs
     // We do (`REG_COUNT-1)-1 because we store the PC separately
@@ -83,13 +82,11 @@ module regfile(
             `endif
             prev_read_addr1 <= read_addr1;
             prev_read_addr2 <= read_addr2;
-            prev_read_inst <= read_inst;
         end
         else begin
             pc <= `BIT_WIDTH'b0;
             prev_read_addr1 <= `REG_COUNT_L2'b0;
             prev_read_addr2 <= `REG_COUNT_L2'b0;
-            prev_read_inst <= `BIT_WIDTH'b0;
         end
     end
 endmodule
