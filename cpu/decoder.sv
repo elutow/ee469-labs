@@ -309,23 +309,40 @@ module decoder(
 
     // Datapath logic
     // Read regfile read data and fix PC values
-    // NOTE: These addresses can be Xs, but that doesn't matter since later
-    // stages will read these values if the instruction uses them.
     logic [`REG_COUNT_L2-1:0] prev_regfile_read_addr1, prev_regfile_read_addr2;
-    always_ff @(posedge clk) begin
-        prev_regfile_read_addr1 <= regfile_read_addr1;
-        prev_regfile_read_addr2 <= regfile_read_addr2;
-    end
+    logic [`BIT_WIDTH-1:0] prev_Rn_value, prev_Rd_Rm_value;
     always_comb begin
-        Rn_value = regfile_read_value1; // If this is pc, then it is already orig_pc+8
-        Rd_Rm_value = regfile_read_value2;
-        if (prev_regfile_read_addr2 == `REG_PC_INDEX) begin
-            Rd_Rm_value = fix_operand2_pc_read_value(regfile_read_value2, decoder_inst);
+        Rn_value = prev_Rn_value;
+        Rd_Rm_value = prev_Rd_Rm_value;
+        if (ready) begin
+            Rn_value = regfile_read_value1; // If this is pc, then it is already orig_pc+8
+            Rd_Rm_value = regfile_read_value2;
+            // Only read_addr2 can be operand2
+            if (prev_regfile_read_addr2 == `REG_PC_INDEX) begin
+                Rd_Rm_value = fix_operand2_pc_read_value(regfile_read_value2, decoder_inst);
+            end
         end
     end // comb
+    always_ff @(posedge clk) begin
+        if (nreset) begin
+            prev_regfile_read_addr1 <= regfile_read_addr1;
+            prev_regfile_read_addr2 <= regfile_read_addr2;
+            prev_Rn_value <= Rn_value;
+            prev_Rd_Rm_value <= Rd_Rm_value;
+        end
+        else begin
+            prev_regfile_read_addr1 <= `REG_COUNT_L2'b0;
+            prev_regfile_read_addr2 <= `REG_COUNT_L2'b0;
+            prev_Rn_value <= `BIT_WIDTH'b0;
+            prev_Rd_Rm_value <= `BIT_WIDTH'b0;
+        end
+    end // ff
     // Determine instruction to output from decoder
     logic [`BIT_WIDTH-1:0] next_decoder_inst;
-    assign next_decoder_inst = fetcher_inst;
+    always_comb begin
+        next_decoder_inst = decoder_inst;
+        if (next_ready) next_decoder_inst = fetcher_inst;
+    end // comb
     always_ff @(posedge clk) begin
         if (nreset) begin
             decoder_inst <= next_decoder_inst;
@@ -365,8 +382,8 @@ module decoder(
     // output on the same clock cycle as decoder_inst is set
     assign regfile_read_inst = next_decoder_inst;
     always_comb begin
-        regfile_read_addr1 = `REG_COUNT_L2'bX;
-        regfile_read_addr2 = `REG_COUNT_L2'bX;
+        regfile_read_addr1 = prev_regfile_read_addr1;
+        regfile_read_addr2 = prev_regfile_read_addr2;
         if (next_ready) begin
             case (decode_format(next_decoder_inst))
                 `FMT_DATA: begin
