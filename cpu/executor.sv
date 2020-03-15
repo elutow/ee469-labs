@@ -423,8 +423,6 @@ module executor(
                     `endif
                     if (decode_mem_is_load(next_executor_inst)) begin
                         // LDR
-                        // TODO: Add register to store Rd address so we can check if we need to add bubble for next instruction
-                        // but only if we are not flushing the PC
                         next_mem_read_addr = mem_new_Rn_value;
                         next_update_Rd = 1'b1;
                         if (decode_Rd(next_executor_inst) == `REG_PC_INDEX) begin
